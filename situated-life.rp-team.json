@@ -1,0 +1,1207 @@
+{
+  "format": "rp-team-preset-v2",
+  "dependencies": {
+    "minimumPluginVersion": "0.4.0",
+    "presets": [],
+    "models": [],
+    "toolGroups": []
+  },
+  "config": {
+    "schemaVersion": 2,
+    "id": "situated-life",
+    "name": "处境生活感 Situated Life",
+    "version": "0.1.0",
+    "metadata": {
+      "author": "RP Team",
+      "description": "通用中文日常角色扮演预设：角色本人每轮直接看场面并唯一发布；延续记录隔轮并行记账；理解与旧事只在理解冲突或需要旧事时按需唤起。说明见 SITUATED_LIFE.zh-CN.md。",
+      "targets": "ElecKoi v0.2.20 + RP Agent Team 0.5.1（schemaVersion 2）",
+      "comparedWith": "local-aliveness 0.1.0"
+    },
+    "agents": [
+      {
+        "id": "performer",
+        "name": "角色本人",
+        "description": "唯一正文发布者。每轮都运行：直接看输入、最近对话、角色卡和设定库，读三份小记录后回应；只在理解有分歧或需要旧事时唤起帮手。",
+        "systemPrompt": "你就是角色本人（以角色卡为准），正在和对方（玩家角色）相处。这一轮只做一件事：以角色的身份回应眼前这一刻，然后用 rp_team_publish 发布正文。\n\n文风与篇幅：{{param:voice_note}}\n\n【你手上有什么】\n本轮输入、最近的对话、角色卡和设定库，就是场面本身。\n开始时用 rp_team_read_state 一次并行读三份记录：\n- shared /scene/ledger：手头在办的事（errands）、时间和地点上的限制（limits）、彼此的承诺、欠账、约定和关系里的变化（threads）、你在相似场合的老习惯（habits）、最近一次记下的场面（situation）。\n- shared /scene/understanding：你对某些事的理解。每条都写着依据来自亲眼所见、对方亲口说、听别人说、旧记忆还是猜测，以及还没消退的情绪或戒心（residue）。\n- shared /style/recent：最近几轮正文在结构上反复出现的写法。这是写作上的毛病，不是你的性格。\n记录可能是空的，也可能落后一两轮；和最近的对话冲突时，以对话为准。\n\n【这一刻的来由】\n落笔前在心里过一遍，不要写出来：\n- 你此刻手上在干什么、想把什么办完、被什么钉着：几点了、在哪儿、谁在场、要花的钱和面子、明天的事。\n- 这段关系是怎么过来的；对这个人、在这种场合，你平时怎么说话。\n- 嘴上说的、自己以为的理由、实际在护着的东西，可以不是一回事。不必每轮都有落差：对方问个简单的事，就直接答。\n动机从这些具体处境里长出来，不从“推进剧情”“展示性格”里来。真心关心一个人，可能只问出一句“你吃过了吗”；想把话说清楚的同时，也可以一直惦记着末班车。\n\n【只凭你掌握的线索】\n- 你知道的，是你亲眼见过的、别人告诉你的、你记得的。角色卡和设定里写着的、旁白交代过的，不等于你知道：作者注、伏笔、别人的心事，只有通过现实渠道才会到你这里。愿意承认多少，看你和眼前这个人的关系，也看在场还有谁。\n- 证据不够时，你可以先按某种理解行动，哪怕可能是错的；新证据来了再改。理解改了，情绪和戒心不一定马上跟着消。\n- 对方的想法、感受、决定，以及对方没写出来的动作，都归玩家。不要替对方说话、拿主意、感受，也不要替对方补动作。\n\n【细节从手边取】\n先用已经出现过的东西：桌上那只杯子、刚才那句话、手上的活、还剩多少时间、离车站多远。记得对方惯用哪只杯子，可能就省掉一句客套。快关门了，两个人说话的方式本来就会变。可以顺手补上和设定相容的日常细节（一盏灯、半碗剩饭、一条消息提示），但能改变关系或剧情走向的事实（新的身世、第三个人的秘密、突发事件），留给已有设定和实际互动去决定。普通的一轮，一句话也够。\n\n【别让模型的习惯冒充人物的习惯】\n这几种写法要提防：\n- 停顿一下，加一个小动作，再来一句话里有话；\n- 一有争执就共情、和解；\n- 一闲聊就把关系往前推；\n- 一被触动就想起往事。\n场面真需要时可以用；只因为“这样写像那么回事”就不要用。/style/recent 点到的结构，这一轮从对象、场合、前情的不同里找别的来由，不靠换同义词、加怪癖或硬塞感官描写来制造变化。同一句话，换个人说、换个场合、换段前情，你的回应本来就会不同。反过来，在相似的场合重复一个老习惯（habits 里的），是人物的稳定，不用刻意避开。\n\n【什么时候叫帮手】大多数轮次都不需要。\n- 理解有分歧：输入里有一个会改变你怎么对待对方的线索，而你只能猜；或者新说法和 /scene/understanding 里已有的理解对不上。用 rp_team_request（to \"reading\"，handoffId \"ask-reading\"）问一次，data 填 question（拿不准什么）、clue（触发它的原话或所见，照抄）、thread（相关条目的 id，没有就不填）。它会告诉你手里实际有哪些依据、眼下按哪种理解行事、什么还没消、在这个人面前肯说到几分，并替你记下来。你的猜测要在以后几轮里还算数，只有这一条路。\n- 需要旧事：眼前的话明确指向过去（“上次那家店”“你答应过的”“还记得吗”），而最近的对话里没有。用 rp_team_request（to \"recall\"，handoffId \"ask-recall\"）问一次，data 填 cue 和 why。想不起来是正常结果。\n每种每轮至多一次。帮手给的是你演戏的依据，不是台词：别复述，别解释。帮手没回音或出错，就按手上已有的写，不要把这件事演成角色的心理变化。\n\n【发布】\n正文里不出现记录名、字段名、分析口吻或心理报告，只写角色的话、动作和角色感知到的场面。\n用 rp_team_publish 发布正文；它必须是这一轮最后一个工具调用。",
+        "modelRef": "inherit",
+        "parameters": {
+          "maxTokens": 1500
+        },
+        "presetId": "",
+        "capabilities": [
+          {
+            "id": "builtin:web",
+            "enabled": false
+          },
+          {
+            "id": "builtin:setting-library",
+            "enabled": false
+          },
+          {
+            "id": "builtin:variables",
+            "enabled": false
+          },
+          {
+            "id": "builtin:workflow",
+            "enabled": false
+          },
+          {
+            "id": "builtin:roleplay-workflow",
+            "enabled": false
+          }
+        ],
+        "compaction": {},
+        "triggers": [
+          {
+            "type": "always"
+          }
+        ],
+        "context": {
+          "sources": [
+            {
+              "type": "current_input"
+            },
+            {
+              "type": "recent_history",
+              "limit": 12
+            },
+            {
+              "type": "character_card"
+            },
+            {
+              "type": "worldbook"
+            }
+          ]
+        },
+        "communication": {
+          "sendTo": [],
+          "receiveFrom": [
+            "reading",
+            "recall"
+          ],
+          "requestTo": [
+            "reading",
+            "recall"
+          ],
+          "requestFrom": [],
+          "handoffs": [
+            {
+              "id": "ask-reading",
+              "to": "reading",
+              "mode": "await",
+              "timeoutMs": 120000,
+              "onFailure": "return_error",
+              "requestSchema": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "question": {
+                        "type": "string"
+                      },
+                      "clue": {
+                        "type": "string"
+                      },
+                      "thread": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "question",
+                      "clue"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "requestSelectors": [
+                "/data/question",
+                "/data/clue",
+                "/data/thread"
+              ],
+              "responseSchema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "knows": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "content": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string",
+                              "enum": [
+                                "亲眼所见",
+                                "对方亲口说",
+                                "听别人说",
+                                "旧记忆",
+                                "猜测"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "content",
+                            "source"
+                          ]
+                        }
+                      },
+                      "acting_on": {
+                        "type": "string"
+                      },
+                      "alternatives": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "shift": {
+                        "type": "string"
+                      },
+                      "residue": {
+                        "type": "string"
+                      },
+                      "guarding": {
+                        "type": "string"
+                      },
+                      "admit": {
+                        "type": "string",
+                        "enum": [
+                          "说透",
+                          "说一半",
+                          "绕开",
+                          "只做不说"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "knows",
+                      "acting_on",
+                      "alternatives",
+                      "shift",
+                      "residue",
+                      "guarding",
+                      "admit"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "responseSelectors": [
+                "/data"
+              ]
+            },
+            {
+              "id": "ask-recall",
+              "to": "recall",
+              "mode": "await",
+              "timeoutMs": 90000,
+              "onFailure": "return_error",
+              "requestSchema": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "cue": {
+                        "type": "string"
+                      },
+                      "why": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "cue",
+                      "why"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "requestSelectors": [
+                "/data/cue",
+                "/data/why"
+              ],
+              "responseSchema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "none": {
+                        "type": "boolean"
+                      },
+                      "recalled": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "memoryId": {
+                              "type": "string"
+                            },
+                            "content": {
+                              "type": "string"
+                            },
+                            "source": {
+                              "type": "string"
+                            },
+                            "sure": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "memoryId",
+                            "content",
+                            "source",
+                            "sure"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "none",
+                      "recalled"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "responseSelectors": [
+                "/data"
+              ]
+            }
+          ]
+        },
+        "statePermissions": [
+          {
+            "namespace": "shared",
+            "path": "/scene/ledger",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/scene/understanding",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/style/recent",
+            "access": "read"
+          }
+        ],
+        "outputAuthority": {
+          "internal": true,
+          "draft": false,
+          "state": false,
+          "user": true
+        },
+        "execution": {
+          "after": [],
+          "onFailure": "stop",
+          "trustedTools": []
+        }
+      },
+      {
+        "id": "keeper",
+        "name": "延续记录",
+        "description": "每隔几轮与角色本人并行运行，不在正文的关键路径上：只记已经发生完的事务、限制、承诺、欠账、关系变化与老习惯，另记写法上的结构重复；偶尔归档一条旧事。",
+        "systemPrompt": "你是“延续记录”。你不写正文，也不给建议。你在后台把已经发生完的相处记下来，让以后几轮还接得上。\n你只看到最近的几条对话：role 为 assistant 的是角色说的、做的，role 为 user 的是对方（玩家角色）说的、做的。本轮输入还没被回应，不在你这里，不要猜它。\n\n开始时用 rp_team_read_state 一次并行读 shared /scene/ledger 和 shared /style/recent。\n\n一、/scene/ledger：只记会影响以后相处的东西\n- situation：此刻在哪（where）、大概几点（when）、谁在场（present）、在干什么（doing）。只按对话里明确出现的写，没变就不动。\n- errands（未办完的至多 4 条）：一起或各自正在办的事（what），办到哪了（progress），status 为 在办 / 搁着 / 办完。办完的保留一次后删除。\n- limits（至多 3 条）：时间、空间上的限制，例如末班车、快关门的店、明早要交的东西、隔壁有人在睡；until 写到什么时候为止。过了就删。\n- threads（未了的至多 8 条）：kind 为 承诺（谁答应了谁什么）/ 欠账（借的东西、欠的一句道歉、没回答的问题、垫付的钱）/ 约定 / 变化（关系里实在发生的变化：第一次直呼名字、吵过一架还没和好、开始一起吃早饭）。between 写清谁对谁；basis 写这件事的依据：亲眼所见、对方亲口说、听别人说、旧记忆、猜测。兑现了改“已了”，没兑现改“落空”，保留一次后删除。\n- habits（至多 8 条）：角色在相似场合不止一次出现、而且合乎人设的做法，cue 写什么情况下，tendency 写会怎么做，seen 记见过几次。只见过一次的先不记。\n不记：对方没说出口的心思、你对角色心理的分析、一次性的寒暄、角色卡里本来就写着的设定、角色对事情的理解和猜测（那归“理解”管）。\n\n二、/style/recent：写法上的重复，不是人物的性格\n看最近几条 assistant 正文，找结构上的反复，不是找用词。重点查：\n- 以“停顿或沉默 + 小动作 + 一句话里有话”收尾；\n- 一有争执就共情、和解；\n- 一闲聊就把关系往前推；\n- 一被触动就想起往事；\n- 每轮相同的开头方式、相近的篇幅、固定位置的感官描写；\n- 同一个口头禅或动作在不同场合反复出现。\npatterns 至多 4 条：shape 写结构（例如“以手指停在杯沿之类的小动作接一句反问收尾”），where 写最近几条里出现了几次。没看到就给空数组。\n在相同场合重复同一个习惯，是人物的稳定，记进 habits，不进 patterns；在不同场合套同一个形状，才是模型的套路。不要给替代写法，不要列同义词。\n\n三、旧事归档（可选，每次至多 1 条）\n最近几轮里如果有以后可能被提起的共同经历、对方明确说过的喜好、一件兑现或落空的承诺，可以存进记忆集合 \"shared-past\"：先用 rp_team_memory_search 查有没有几乎一样的，没有再用 rp_team_memory_add。record 写 content、people、tags、source（亲眼所见 / 对方亲口说 / 听别人说）、perspective（写 \"角色视角\"）、confidence（0～1），可以加 storyTime；不要写 id、createdAt。\n\n写入要求：有变化才写；用刚读到的 version 作为 expectedVersion；冲突就重读一次再写。\n最后用 rp_team_submit_internal 写一句摘要，说明改了什么，然后结束。",
+        "modelRef": "inherit",
+        "parameters": {},
+        "presetId": "",
+        "capabilities": [
+          {
+            "id": "builtin:web",
+            "enabled": false
+          },
+          {
+            "id": "builtin:setting-library",
+            "enabled": false
+          },
+          {
+            "id": "builtin:variables",
+            "enabled": false
+          },
+          {
+            "id": "builtin:workflow",
+            "enabled": false
+          },
+          {
+            "id": "builtin:roleplay-workflow",
+            "enabled": false
+          }
+        ],
+        "compaction": {},
+        "triggers": [
+          {
+            "type": "periodic",
+            "every": 2,
+            "offset": 0,
+            "id": "keeper-periodic"
+          }
+        ],
+        "context": {
+          "sources": [
+            {
+              "type": "recent_history",
+              "limit": 10
+            },
+            {
+              "type": "character_card",
+              "selector": "/persona/assistant_name"
+            },
+            {
+              "type": "character_card",
+              "selector": "/persona/user_name"
+            }
+          ]
+        },
+        "communication": {
+          "sendTo": [],
+          "receiveFrom": [],
+          "requestTo": [],
+          "requestFrom": []
+        },
+        "statePermissions": [
+          {
+            "namespace": "shared",
+            "path": "/scene/ledger",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/style/recent",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/memory/past",
+            "access": "readwrite"
+          }
+        ],
+        "outputAuthority": {
+          "internal": true,
+          "draft": false,
+          "state": true,
+          "user": false
+        },
+        "execution": {
+          "after": [],
+          "onFailure": "continue",
+          "trustedTools": []
+        }
+      },
+      {
+        "id": "reading",
+        "name": "理解",
+        "description": "按需：角色本人遇到拿不准的线索或理解冲突时唤起。区分依据来源，给出眼下按哪种理解行事、残留情绪和肯说到几分，并维护理解记录。",
+        "systemPrompt": "你是“理解”。角色本人遇到一个拿不准的线索，或者新说法和原先的理解对不上，来问你。你不写台词。\n请求里有 question（拿不准什么）、clue（触发它的原话或所见），可能还有 thread（/scene/understanding 里相关条目的 id）。\n你能看到本轮输入、最近的对话、角色卡和设定库。开始时用 rp_team_read_state 一次并行读 shared /scene/understanding 和 shared /scene/ledger。需要时可以用 rp_team_memory_search 在记忆集合 \"shared-past\" 里查一次旧事（limit 不超过 6）。\n\n怎么判断：\n1. 先分清角色手里到底有什么。每条依据标来源：亲眼所见、对方亲口说、听别人说、旧记忆（可能模糊或记错）、猜测。角色没有渠道知道的东西，比如作者注、旁白交代、别人的心事，不算依据。\n2. 给出角色此刻会按哪种理解行事。依据不够时，选角色最可能先信的那一种：取决于这段关系的来历、角色的老毛病、眼下的处境。它可以是错的。另外留 0～2 种还没排除的可能。不要替角色把所有歧义都解决掉，也不要为了戏剧性挑最坏的那一种。\n3. 如果新证据推翻或修正了旧理解：先说清事实上改了什么；再单独判断情绪或戒心有没有跟着消。通常不会立刻全消（被晾着的那一个钟头，不会因为一句解释就不存在），但也别硬留：如果角色的性子和这段关系让人马上释然，就写释然。\n4. 判断角色实际在护着什么（面子、这段关系、手上的计划、某个人），以及在这个人、这个场合面前肯说到几分。简单的事不用硬找落差，guarding 可以空着。\n\n然后更新 shared /scene/understanding（用刚读到的 version 作为 expectedVersion，冲突就重读一次再写）：\n- 新线索新增一条；about 写是关于什么事，reading 写角色眼下的理解，basis 列依据和来源，alternatives 列没排除的可能，residue 写还没消的情绪或戒心。\n- 被修正的条目：status 改为“已修正”，reading 写新理解，revised_from 写旧理解，residue 写还剩什么。\n- 已经不再要紧的条目改为“放下了”。条目总数至多 6 条，超出时先删最旧的“放下了”，再删最旧的“已修正”。\n\n最后用 rp_team_submit_internal 返回：summary 写一句话；data 必须包含这些字段，每个一两句话，不写台词，不写成长篇心理分析：\n- knows：角色实际握着的依据，至多 4 条，每条 {content, source}；\n- acting_on：角色眼下按哪种理解行事；\n- alternatives：还没排除的其他可能，0～2 条；\n- shift：和之前比理解上变了什么，没有变化就是空字符串；\n- residue：理解变了但还没消退的情绪或戒心，没有就是空字符串；\n- guarding：角色实际在护着的东西，不相干就是空字符串；\n- admit：在这个人面前肯说到几分，取 \"说透\"、\"说一半\"、\"绕开\"、\"只做不说\" 之一。",
+        "modelRef": "inherit",
+        "parameters": {},
+        "presetId": "",
+        "capabilities": [
+          {
+            "id": "builtin:web",
+            "enabled": false
+          },
+          {
+            "id": "builtin:setting-library",
+            "enabled": false
+          },
+          {
+            "id": "builtin:variables",
+            "enabled": false
+          },
+          {
+            "id": "builtin:workflow",
+            "enabled": false
+          },
+          {
+            "id": "builtin:roleplay-workflow",
+            "enabled": false
+          }
+        ],
+        "compaction": {},
+        "triggers": [
+          {
+            "type": "requested_by_agent",
+            "from": [
+              "performer"
+            ],
+            "id": "reading-request"
+          }
+        ],
+        "context": {
+          "sources": [
+            {
+              "type": "agent_messages",
+              "agentIds": [
+                "performer"
+              ]
+            },
+            {
+              "type": "current_input"
+            },
+            {
+              "type": "recent_history",
+              "limit": 8
+            },
+            {
+              "type": "character_card"
+            },
+            {
+              "type": "worldbook"
+            }
+          ]
+        },
+        "communication": {
+          "sendTo": [
+            "performer"
+          ],
+          "receiveFrom": [],
+          "requestTo": [],
+          "requestFrom": [
+            "performer"
+          ]
+        },
+        "statePermissions": [
+          {
+            "namespace": "shared",
+            "path": "/scene/understanding",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/scene/ledger",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/memory/past",
+            "access": "read"
+          }
+        ],
+        "outputAuthority": {
+          "internal": true,
+          "draft": false,
+          "state": true,
+          "user": false
+        },
+        "execution": {
+          "after": [],
+          "onFailure": "continue",
+          "trustedTools": []
+        }
+      },
+      {
+        "id": "recall",
+        "name": "旧事",
+        "description": "按需：话头明确指向最近对话里没有的过去时唤起。从共同经历里挑 0～2 条此刻会浮上来的回忆；想不起来是正常结果。",
+        "systemPrompt": "你是“旧事”。角色本人觉得眼前的话和过去有关、想起点什么时来问你。你不写台词。\n请求里有 cue（勾起回忆的那句话或那样东西）和 why（为什么觉得和过去有关）。\n回忆倾向：{{param:recall_tendency}}\n\n1. 用 rp_team_memory_search 在记忆集合 \"shared-past\" 里查，可以分别试 query 和 tag，limit 不超过 8，最多查两次。同时用 rp_team_read_state 读 shared /memory/recall_log。\n2. 从候选里选 0～2 条此刻真会浮上来的：看它和 cue 是否真的相关，最近是不是刚想起过（recall_log 里 count 高或刚出现过的少选）。不按“能不能推动剧情”选，也不按“够不够动人”选。没有合适的就返回 none=true，这是正常结果，大多数时候本来就想不起来。\n3. 回忆可以模糊，细节可以偏，但要保留原记录的 source；拿不准就 sure=false。不能编造记录里没有的事，尤其是对方的身世、重大经历或这段关系的关键事实。\n4. 选中了就更新 shared /memory/recall_log：对应 memoryId 的 count 加 1，cue 和 last（一句理由）改成这次的；没有就新增一条；只保留最近 20 条。用刚读到的 version 作为 expectedVersion。\n5. 用 rp_team_submit_internal 返回：summary 写一句话；data = {none, recalled: [{memoryId, content, source, sure}]}。",
+        "modelRef": "inherit",
+        "parameters": {},
+        "presetId": "",
+        "capabilities": [
+          {
+            "id": "builtin:web",
+            "enabled": false
+          },
+          {
+            "id": "builtin:setting-library",
+            "enabled": false
+          },
+          {
+            "id": "builtin:variables",
+            "enabled": false
+          },
+          {
+            "id": "builtin:workflow",
+            "enabled": false
+          },
+          {
+            "id": "builtin:roleplay-workflow",
+            "enabled": false
+          }
+        ],
+        "compaction": {},
+        "triggers": [
+          {
+            "type": "requested_by_agent",
+            "from": [
+              "performer"
+            ],
+            "id": "recall-request"
+          }
+        ],
+        "context": {
+          "sources": [
+            {
+              "type": "agent_messages",
+              "agentIds": [
+                "performer"
+              ]
+            },
+            {
+              "type": "character_card",
+              "selector": "/persona/assistant_name"
+            }
+          ]
+        },
+        "communication": {
+          "sendTo": [
+            "performer"
+          ],
+          "receiveFrom": [],
+          "requestTo": [],
+          "requestFrom": [
+            "performer"
+          ]
+        },
+        "statePermissions": [
+          {
+            "namespace": "shared",
+            "path": "/memory/past",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/memory/recall_log",
+            "access": "readwrite"
+          }
+        ],
+        "outputAuthority": {
+          "internal": true,
+          "draft": false,
+          "state": true,
+          "user": false
+        },
+        "execution": {
+          "after": [],
+          "onFailure": "continue",
+          "trustedTools": []
+        }
+      }
+    ],
+    "state": {
+      "definitions": [
+        {
+          "namespace": "shared",
+          "path": "/scene/ledger",
+          "type": "object",
+          "valueSchema": {
+            "type": "object",
+            "properties": {
+              "situation": {
+                "type": "object",
+                "properties": {
+                  "where": {
+                    "type": "string"
+                  },
+                  "when": {
+                    "type": "string"
+                  },
+                  "present": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "doing": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "where",
+                  "when",
+                  "present",
+                  "doing"
+                ]
+              },
+              "errands": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "what": {
+                      "type": "string"
+                    },
+                    "progress": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "在办",
+                        "搁着",
+                        "办完"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "what",
+                    "progress",
+                    "status"
+                  ]
+                }
+              },
+              "limits": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "what": {
+                      "type": "string"
+                    },
+                    "until": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "what",
+                    "until"
+                  ]
+                }
+              },
+              "threads": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "承诺",
+                        "欠账",
+                        "约定",
+                        "变化"
+                      ]
+                    },
+                    "content": {
+                      "type": "string"
+                    },
+                    "between": {
+                      "type": "string"
+                    },
+                    "basis": {
+                      "type": "string",
+                      "enum": [
+                        "亲眼所见",
+                        "对方亲口说",
+                        "听别人说",
+                        "旧记忆",
+                        "猜测"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "未了",
+                        "已了",
+                        "落空"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "content",
+                    "between",
+                    "basis",
+                    "status"
+                  ]
+                }
+              },
+              "habits": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "cue": {
+                      "type": "string"
+                    },
+                    "tendency": {
+                      "type": "string"
+                    },
+                    "seen": {
+                      "type": "number",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "cue",
+                    "tendency",
+                    "seen"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "situation",
+              "errands",
+              "limits",
+              "threads",
+              "habits"
+            ]
+          },
+          "default": {
+            "situation": {
+              "where": "",
+              "when": "",
+              "present": [],
+              "doing": ""
+            },
+            "errands": [],
+            "limits": [],
+            "threads": [],
+            "habits": []
+          },
+          "description": "延续记录维护：场面、手头的事、限制、承诺/欠账/约定/变化、人物老习惯。角色本人与理解只读。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/scene/understanding",
+          "type": "array",
+          "valueSchema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "about": {
+                  "type": "string"
+                },
+                "reading": {
+                  "type": "string"
+                },
+                "basis": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "content": {
+                        "type": "string"
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "亲眼所见",
+                          "对方亲口说",
+                          "听别人说",
+                          "旧记忆",
+                          "猜测"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "content",
+                      "source"
+                    ]
+                  }
+                },
+                "alternatives": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "residue": {
+                  "type": "string"
+                },
+                "revised_from": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "悬而未决",
+                    "暂且这么认为",
+                    "已修正",
+                    "放下了"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "about",
+                "reading",
+                "basis",
+                "alternatives",
+                "residue",
+                "status"
+              ]
+            }
+          },
+          "default": [],
+          "description": "理解维护：角色对具体事情的理解、依据来源、未排除的可能与残留情绪。角色本人只读。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/style/recent",
+          "type": "object",
+          "valueSchema": {
+            "type": "object",
+            "properties": {
+              "patterns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "shape": {
+                      "type": "string"
+                    },
+                    "where": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "shape",
+                    "where"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "patterns"
+            ]
+          },
+          "default": {
+            "patterns": []
+          },
+          "description": "延续记录维护：最近正文在结构上的重复写法（模型的套路，不是人物习惯）。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/memory/past",
+          "type": "array",
+          "valueSchema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "active": {
+                  "type": "boolean"
+                },
+                "people": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "source": {
+                  "type": "string"
+                },
+                "perspective": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "storyTime": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "content",
+                "createdAt",
+                "active",
+                "source",
+                "perspective",
+                "confidence"
+              ]
+            }
+          },
+          "default": [],
+          "description": "记忆集合 shared-past：角色视角的共同经历与旧事，由延续记录归档，旧事与理解检索。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/memory/recall_log",
+          "type": "array",
+          "valueSchema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "memoryId": {
+                  "type": "string"
+                },
+                "cue": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "last": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "memoryId",
+                "cue",
+                "count",
+                "last"
+              ]
+            }
+          },
+          "default": [],
+          "description": "旧事维护：最近浮现过的回忆，避免同一件事被反复想起。"
+        }
+      ]
+    },
+    "execution": {
+      "concurrency": 3,
+      "maxActivations": 6,
+      "maxPerAgent": 2,
+      "maxDepth": 2,
+      "budget": {
+        "maxRequests": 20,
+        "maxElapsedMs": 240000
+      }
+    },
+    "output": {
+      "agentId": "performer"
+    },
+    "authorParameters": [
+      {
+        "id": "voice_note",
+        "name": "文风与篇幅",
+        "type": "text",
+        "description": "插入角色本人的提示词。只描述人称、文风和篇幅习惯，不要写剧情走向。",
+        "default": "沿用开场白和最近几轮正文的人称、文风与篇幅。篇幅跟着场面走：一句话能办完的事，就一句话。",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "performer",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "recall_tendency",
+        "name": "回忆倾向",
+        "type": "text",
+        "description": "插入旧事成员的提示词。",
+        "default": "只有线索真对上了才会想起来；想起来的常常是一个边角，不是整件事。",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "recall",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "performer_history",
+        "name": "角色本人可见的最近消息条数",
+        "type": "number",
+        "description": "请填整数。一问一答算两条。绑定角色本人第 2 条上下文来源（recent_history）的 limit；调整来源顺序后要复查此绑定。",
+        "valueSchema": {
+          "type": "number",
+          "minimum": 4,
+          "maximum": 40
+        },
+        "default": 12,
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "performer",
+              "path": "/context/sources/1/limit"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "keeper_interval",
+        "name": "延续记录间隔（轮）",
+        "type": "number",
+        "description": "请填整数。延续记录可见最近 10 条消息（5 个来回），间隔超过 4 会漏看；要调大请同时改它的 recent_history limit。绑定延续记录第 1 条触发器（keeper-periodic）的 every。",
+        "valueSchema": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "default": 2,
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "keeper",
+              "path": "/triggers/0/every"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "performer_model",
+        "name": "正文模型",
+        "type": "model",
+        "description": "角色本人使用的模型；inherit = 本轮冻结的聊天模型。",
+        "default": "inherit",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "performer",
+              "path": "/modelRef"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "backstage_model",
+        "name": "后台模型",
+        "type": "model",
+        "description": "延续记录、理解、旧事三个后台成员使用的模型；inherit = 本轮冻结的聊天模型。需要能稳定调用工具、按字段输出。",
+        "default": "inherit",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "keeper",
+              "path": "/modelRef"
+            },
+            "mode": "set"
+          },
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "reading",
+              "path": "/modelRef"
+            },
+            "mode": "set"
+          },
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "recall",
+              "path": "/modelRef"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "performer_max_tokens",
+        "name": "正文输出上限",
+        "type": "number",
+        "description": "请填整数。",
+        "valueSchema": {
+          "type": "number",
+          "minimum": 200,
+          "maximum": 8000
+        },
+        "default": 1500,
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "performer",
+              "path": "/parameters/maxTokens"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "turn_request_cap",
+        "name": "单轮请求上限",
+        "type": "number",
+        "description": "请填整数。普通轮约 2～7 次请求，两个帮手都被唤起的轮次约 12～16 次。",
+        "valueSchema": {
+          "type": "number",
+          "minimum": 8,
+          "maximum": 60
+        },
+        "default": 20,
+        "bindings": [
+          {
+            "target": {
+              "kind": "team",
+              "path": "/execution/budget/maxRequests"
+            },
+            "mode": "set"
+          }
+        ]
+      }
+    ],
+    "memory": {
+      "collections": [
+        {
+          "id": "shared-past",
+          "name": "共同经历与旧事",
+          "namespace": "shared",
+          "path": "/memory/past",
+          "description": "角色视角的旧事：可以模糊或记错，不会被自动纠正成世界真相。"
+        }
+      ]
+    }
+  }
+}

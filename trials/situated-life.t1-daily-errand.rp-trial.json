@@ -1,0 +1,174 @@
+{
+  "format": "rp-team-trial-scenario",
+  "version": 1,
+  "scenario": {
+    "name": "处境生活感 T1 普通日常：一起做晚饭（5 轮）",
+    "steps": [
+      {
+        "id": "t1-1-no-takeout",
+        "inputText": "晚饭别点外卖了吧。冰箱里还有半颗白菜、四个鸡蛋，还有上回剩的半包挂面。",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      },
+      {
+        "id": "t1-2-who-cuts",
+        "inputText": "（我把白菜从冰箱里拿出来，放进水池冲着）你切还是我切？",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      },
+      {
+        "id": "t1-3-where-salt",
+        "inputText": "盐呢？我记得上回是放在灶台左边这个柜子里的。",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      },
+      {
+        "id": "t1-4-noodles-first",
+        "inputText": "（锅里的水开了，冒着白气）面先下，还是先把菜炒了？",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      },
+      {
+        "id": "t1-5-too-salty",
+        "inputText": "（我把两碗面端上桌，先尝了一口）……好像有点咸。",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      }
+    ]
+  }
+}

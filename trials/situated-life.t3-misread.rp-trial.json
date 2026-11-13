@@ -1,0 +1,174 @@
+{
+  "format": "rp-team-trial-scenario",
+  "version": 1,
+  "scenario": {
+    "name": "处境生活感 T3 误解与修正：按灭的手机（5 轮）",
+    "steps": [
+      {
+        "id": "t3-1-ambiguous-clue",
+        "inputText": "（你推门进来时，我正好把手机屏幕按灭，扣在桌上）……周六那个约，我可能去不了了。",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      },
+      {
+        "id": "t3-2-ordinary-porridge",
+        "inputText": "你吃过了吗？锅里还有点粥。",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      },
+      {
+        "id": "t3-3-ordinary-coat",
+        "inputText": "明天降温，你那件厚外套我收到衣柜最上面了。",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      },
+      {
+        "id": "t3-4-new-evidence",
+        "inputText": "（我把手机翻过来，推到你面前。屏幕上是和我妈的聊天记录）刚才没说清楚——我妈住院了，周六我得回去一趟。那会儿我还没想好怎么跟你说。",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      },
+      {
+        "id": "t3-5-back-to-umbrella",
+        "inputText": "对了，你那把伞还在我这儿，明天出门记得拿。",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      }
+    ]
+  }
+}

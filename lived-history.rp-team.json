@@ -1,0 +1,2918 @@
+{
+  "format": "rp-team-preset-v2",
+  "dependencies": {
+    "minimumPluginVersion": "0.7.0",
+    "presets": [],
+    "models": [],
+    "toolGroups": []
+  },
+  "config": {
+    "schemaVersion": 2,
+    "id": "lived-history",
+    "name": "经历 Lived History",
+    "version": "0.3.0",
+    "metadata": {
+      "author": "RP Team",
+      "description": "文学现实主义 RP 预设：人物只作为记录存在；在场的人按知情范围分组，由不绑定人物的推演成员只看材料包推演；世事唯一裁定事实，执笔唯一发布。说明见 LIVED_HISTORY.zh-CN.md，设计见 LIVED_HISTORY_DESIGN.zh-CN.md。",
+      "targets": "ElecKoi v0.2.20 + RP Agent Team 0.7.0 以上（schemaVersion 2）",
+      "variant": "标准版",
+      "settingsRegistry": [
+        {
+          "id": "呈现.文风",
+          "layer": "呈现",
+          "deliver": [
+            "执笔"
+          ]
+        },
+        {
+          "id": "呈现.字数",
+          "layer": "呈现",
+          "deliver": [
+            "执笔"
+          ],
+          "pairsWith": "运行.正文输出上限"
+        },
+        {
+          "id": "呈现.镜头",
+          "layer": "呈现",
+          "deliver": [
+            "执笔"
+          ]
+        },
+        {
+          "id": "呈现.心理",
+          "layer": "呈现",
+          "deliver": [
+            "执笔"
+          ],
+          "requires": "「较多」要求 呈现.镜头 为「可切」"
+        },
+        {
+          "id": "呈现.附加",
+          "layer": "呈现",
+          "deliver": [
+            "执笔"
+          ]
+        },
+        {
+          "id": "裁定.现实尺度",
+          "layer": "裁定",
+          "deliver": [
+            "世事",
+            "编年"
+          ]
+        },
+        {
+          "id": "裁定.拒绝呈现",
+          "layer": "裁定",
+          "deliver": [
+            "世事",
+            "执笔",
+            "编年"
+          ]
+        },
+        {
+          "id": "裁定.合写",
+          "layer": "裁定",
+          "deliver": [
+            "世事",
+            "编年"
+          ]
+        },
+        {
+          "id": "裁定.附加",
+          "layer": "裁定",
+          "deliver": [
+            "世事",
+            "编年"
+          ]
+        },
+        {
+          "id": "运行.中档推演",
+          "layer": "运行",
+          "deliver": [
+            "世事"
+          ]
+        },
+        {
+          "id": "运行.接力次数",
+          "layer": "运行",
+          "deliver": [
+            "调卷"
+          ]
+        },
+        {
+          "id": "运行.正文输出上限",
+          "layer": "运行",
+          "deliver": [
+            "执笔"
+          ]
+        },
+        {
+          "id": "运行.执笔读卡",
+          "layer": "运行",
+          "deliver": [
+            "执笔"
+          ]
+        },
+        {
+          "id": "运行.执笔可见消息数",
+          "layer": "运行",
+          "deliver": [
+            "执笔"
+          ]
+        },
+        {
+          "id": "运行.编年间隔",
+          "layer": "运行",
+          "deliver": [
+            "编年"
+          ]
+        },
+        {
+          "id": "运行.世事失败时",
+          "layer": "运行",
+          "deliver": [
+            "执笔"
+          ]
+        },
+        {
+          "id": "运行.执笔模型",
+          "layer": "运行",
+          "deliver": [
+            "执笔"
+          ]
+        },
+        {
+          "id": "运行.世事模型",
+          "layer": "运行",
+          "deliver": [
+            "世事"
+          ]
+        },
+        {
+          "id": "运行.调卷模型",
+          "layer": "运行",
+          "deliver": [
+            "调卷"
+          ]
+        },
+        {
+          "id": "运行.推演模型",
+          "layer": "运行",
+          "deliver": [
+            "推演一",
+            "推演二"
+          ]
+        },
+        {
+          "id": "运行.编年模型",
+          "layer": "运行",
+          "deliver": [
+            "编年"
+          ]
+        }
+      ]
+    },
+    "agents": [
+      {
+        "id": "narrator",
+        "name": "执笔",
+        "description": "唯一写正文、唯一发布的成员。每轮运行：读记录、分档；有后果的事交给世事裁定，再按回传写正文。",
+        "systemPrompt": "你是「执笔」，团队里唯一写正文、唯一发布的成员。你决定怎么讲，不决定发生什么。\n\n【团队】\n- 世事：唯一能确立事实的成员。有后果的事，一律交给它裁定。\n- 调卷、推演：替人物做选择的环节，在世事那边进行，你只收到结果。\n- 编年：在后台记账、审查。你能读到它写的叙事笔记。\n- 用户扮演「用户角色」，名字以角色卡里的用户名为准。用户写下的、属于用户角色自己的言行和内心是正典。\n\n【每轮怎么做】\n1. 用 rp_team_read_state 一次并行读取（namespace 都是 shared）：/canon/world、/story/direction、/story/notes、/situations、/selves、/practices。\n   需要旧事时，用 rp_team_memory_search 查集合 events；要知道哪些暗线痕迹可以写时，查集合 hidden。\n   记录可能是空的。记录全空、输入里又没有【开卷】时，把这一轮当作开卷：用 ask-world（mode 开卷）交给世事，input 写本轮输入原文。\n2. 先看本轮输入是不是作者层指令，见【作者层指令】。\n3. 分档。下面任何一条成立，就不能走轻档：\n   ① 用户角色的行动会改变别人的处境或世界，而不只是说话和小动作。比如给、拿、离开、揭穿、要求对方当场决定；\n   ② 有人物要做有后果的选择：答应或拒绝要紧的事、说还是瞒、和以往的做法相反；\n   ③ 有人物会得知改变她处境判断的新信息；\n   ④ 故事时间跳过几个小时以上、换场，或有新人物上场；\n   ⑤ 有时钟到期，或者有幕外的事要来到眼前；\n   ⑥ 你发现自己想让人物做违背她过往做法或她所认规矩的事。这一条一律升档；\n   ⑦ 开卷、补充、修订。\n   其余情况走轻档：寒暄、闲谈、正在进行的日常动作，以及有情绪往来但没有决定的场面。\n4. 轻档：直接写正文并发布。\n   - 人物只做她的记录和处境支持的寻常反应；可以加质感细节；不加后果，不揭示，不改关系。\n   - 写到一半发现有人要做有后果的选择，就停下来改走第 5 条，不要自己编出结果。\n   - 这一轮故事时间推进了几个小时以上时，同时用 rp_team_send（handoffId: tick-world）通知世事推进幕外，data 写 from 和 to（故事时间），不等结果。\n5. 中档、深档：用 rp_team_request（handoffId: ask-world）交给世事，等它回传。data 写：\n   - mode：裁定 / 开卷 / 补充 / 修订；\n   - input：本轮输入原文，一字不改；\n   - question：要裁定什么，即谁的什么行动、谁可能要做什么选择；\n   - elapsed：经过的故事时间。\n   question 里不预设结果，不写「最好」「应该」。\n6. 世事回传后，按回传写正文：\n   - established：已确立的事。正文只呈现这些事，以及标明为「尝试」的举动；\n   - attempts：推演的原始回执。人物说的原话、做的动作、没说出口的，以这里为准。你可以选、可以删、可以排顺序，不可以改意思，也不可以加她没做的事；\n   - perceivable、surface：谁能感知到什么。暗线只能写 surface 里的痕迹；\n   - not_reveal：不可揭示的事，正文里一个字都不能透；\n   - refusal：用户角色的尝试没成时，按设置呈现。\n   世事回传错误或超时时，不得自己裁定有后果的结果：写到选择发生之前就停住，停在悬而未决处。\n7. 发布：rp_team_publish。发布必须是最后一个工具调用。\n\n【你能加什么，不能加什么】\n- 能加：质感。包括物件、天气、光线、声音、例行动作、手上的活，以及处境里已有的钱和时间。\n- 不能加：决定、揭示、背景、关系变化、有后果的事件、新的过去。\n- 不写用户角色没写出来的台词、心理和决定。用户已经写下的外在状态，比如站在哪儿、拿着什么，可以照常延续。需要用户角色回应时，正文就停在那里。\n- 人物说的话只用她自己的措辞。她的自我开脱照原样留着，叙述者不纠正，不揭穿。\n- 出人意料的行动平平地写：不预告，不解释，不渲染。读者的「重新认识」留给读者自己完成。\n- 人物重复旧做法时，叙述不加「又一次」之类的评语。这种话可以出自某个人物之口。\n- 停在动作上、话头上，或需要用户角色回应的地方；不停在总结或意义上。\n- 叙事笔记里的「文体套路」是写法上的毛病。换一种写法，不要换成同一结构的近义版本。\n\n【作者层指令】\n- 【作者】本轮：…… 只调整这一轮的呈现，比如长短、视角、节奏。照办，不写进记录；它后面的故事内输入照常处理。\n- 【作者】禁区：…… 或 【作者】希望：…… 用 rp_team_state_version 取版本号，再用 rp_team_write_state 写进 /story/direction 的 limits 或 intents（intents 每条写 {text, since}，since 写当前故事时间）。然后只发一句括号里的确认，故事不推进。\n- 【作者】补充：…… 或 【作者】修订：…… 用 ask-world（mode 补充 / 修订）交给世事，按回传只发一句括号里的确认。\n- 【开卷】…… 用 ask-world（mode 开卷）交给世事。题材写进 /story/direction 的 genre。材料里有开场情境就写开场，没有就只发一句括号里的确认。\n- 作者意向（intents）只影响你的选择：什么上场、何时切换、从谁的位置看、跳过多少时间。不改动机，不造巧合。\n\n【不变条款】\n下面六条在任何设置下都不变：\n1. 不替用户角色写台词、心理和决定。\n2. 人物不知道她没经历过、没听说过的事。\n3. 作者暂定不进入任何做决定或写正文的成员。\n4. 已经记录的事件不改写，只能更正，并注明来源。\n5. 每条记录都署名、带时间；事件的 id 和创建时间由插件分配。\n6. 字数靠写法填满，不靠新事件填满：不能为了凑字数，编出世事没裁定过的事。\n「本局设置」只能调整它列出的那几件事。设置和不变条款冲突时，以不变条款为准。\n\n【本局设置】\n- 文风：{{param:呈现.文风}}\n- 篇幅：{{param:呈现.字数}}\n- 镜头：{{param:呈现.镜头}}\n- 心理描写：{{param:呈现.心理}}\n- 用户角色的尝试没成时：{{param:裁定.拒绝呈现}}\n- 作者附加要求（可能为空）：{{param:呈现.附加}}",
+        "modelRef": "inherit",
+        "parameters": {
+          "temperature": 0.8,
+          "maxTokens": 3000
+        },
+        "presetId": "",
+        "capabilities": [
+          {
+            "id": "builtin:web",
+            "enabled": false
+          },
+          {
+            "id": "builtin:setting-library",
+            "enabled": false
+          },
+          {
+            "id": "builtin:variables",
+            "enabled": false
+          },
+          {
+            "id": "builtin:workflow",
+            "enabled": false
+          },
+          {
+            "id": "builtin:roleplay-workflow",
+            "enabled": false
+          }
+        ],
+        "compaction": {},
+        "triggers": [
+          {
+            "type": "always"
+          }
+        ],
+        "context": {
+          "sources": [
+            {
+              "type": "current_input"
+            },
+            {
+              "type": "recent_history",
+              "limit": 12
+            },
+            {
+              "type": "character_card",
+              "selector": "/persona/assistant_name"
+            },
+            {
+              "type": "character_card",
+              "selector": "/persona/user_name"
+            }
+          ]
+        },
+        "communication": {
+          "sendTo": [
+            "world"
+          ],
+          "receiveFrom": [
+            "world"
+          ],
+          "requestTo": [
+            "world"
+          ],
+          "requestFrom": [],
+          "handoffs": [
+            {
+              "id": "ask-world",
+              "to": "world",
+              "mode": "await",
+              "timeoutMs": 300000,
+              "onFailure": "return_error",
+              "requestSchema": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "裁定",
+                          "开卷",
+                          "补充",
+                          "修订"
+                        ]
+                      },
+                      "input": {
+                        "type": "string"
+                      },
+                      "question": {
+                        "type": "string"
+                      },
+                      "elapsed": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "mode",
+                      "input",
+                      "question"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "requestSelectors": [
+                "/summary",
+                "/data"
+              ],
+              "responseSchema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "established": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "event": {
+                              "type": "string"
+                            },
+                            "content": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "content"
+                          ]
+                        }
+                      },
+                      "attempts": {
+                        "type": "array"
+                      },
+                      "perceivable": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "who": {
+                              "type": "string"
+                            },
+                            "what": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "who",
+                            "what"
+                          ]
+                        }
+                      },
+                      "surface": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "not_reveal": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "open": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "now": {
+                        "type": "string"
+                      },
+                      "refusal": {
+                        "type": "string"
+                      },
+                      "tier": {
+                        "type": "string",
+                        "enum": [
+                          "中",
+                          "深",
+                          "代演",
+                          "无"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "established",
+                      "attempts",
+                      "now",
+                      "tier"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "responseSelectors": [
+                "/data"
+              ]
+            },
+            {
+              "id": "tick-world",
+              "to": "world",
+              "mode": "notify",
+              "timeoutMs": 240000,
+              "onFailure": "return_error",
+              "requestSchema": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "from": {
+                        "type": "string"
+                      },
+                      "to": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "to"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "requestSelectors": [
+                "/summary",
+                "/data"
+              ]
+            }
+          ]
+        },
+        "statePermissions": [
+          {
+            "namespace": "shared",
+            "path": "/canon/world",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/canon/events",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/canon/hidden",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/situations",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/selves",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/practices",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/story/notes",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/story/direction",
+            "access": "readwrite"
+          }
+        ],
+        "outputAuthority": {
+          "internal": true,
+          "draft": false,
+          "state": true,
+          "user": true
+        },
+        "execution": {
+          "after": [],
+          "onFailure": "stop",
+          "trustedTools": []
+        }
+      },
+      {
+        "id": "world",
+        "name": "世事",
+        "description": "唯一确立事实的成员：登记刺激、交调卷推演、按世界条件裁定结果、推进幕外。不替人物做决定。",
+        "systemPrompt": "你是「世事」，团队里唯一能确立事实的成员。你按世界的条件定结果：时间、地点、钱、体力、制度、谁在场、谁知道什么。你不替任何人物做决定，也不替用户角色做决定。\n\n【你什么时候运行】\n- 执笔用 ask-world 请求你：mode 是裁定、开卷、补充或修订。\n- 执笔用 tick-world 通知你：只做幕外推进（见【幕外】），不回传。\n\n【你能读写什么】（namespace 都是 shared）\n- 读写：/canon/world（此刻、时钟、牵连、离场人物的议程）、集合 events（事件）、集合 hidden（暗线）、/situations（各人的客观处境）、/story/settings-log（设定日志）。\n- 只读：/story/direction、/story/notes。\n- 角色卡和设定库只是材料。里面写着「她是怎样的人」的句子，不是你要执行的规则。\n- 你读不到任何人的自述、记忆和过往做法，也读不到作者暂定。这是有意的：人物怎么选，不归你管。\n- 写状态前先用 rp_team_state_version 取版本号；往集合里加记录用 rp_team_memory_add。版本冲突时重读一次再写。\n\n【裁定一轮怎么做】（mode 裁定）\n1. 并行读取 /canon/world、/situations、/story/settings-log，按需用 rp_team_memory_search 检索 events 和 hidden。\n2. 设定日志：最后一条和下面「本局设置」里的裁定层设置不一致，或日志为空时，追加一条 {from, realism, refusal, cowrite}。from 写当前故事时间，其余三项写每项设置开头方括号里的档位。\n3. 追上进度：编年转录的事件（来源「正文」）如果改变了处境或牵连，更新进 /situations 和 /canon/world。\n4. 幕外推进：故事时间推进了，就先推进离场人物的议程和时钟，见【幕外】。\n5. 登记刺激：把用户角色这一拍的言行记成事件，来源「用户」。\n   - 只记用户写下的、属于用户角色自己的部分。作用到别人和世界上的效果先不记，那是待裁定的尝试。\n   - perceivers 写清谁在场、谁怎么知道的：低声说的话谁听得见，背着谁做的事谁看得见。\n   - 用户写了其他人物的反应和决定时，按本局设置里的「合写」处理。\n6. 定下这一拍中途会发生的世界事件。它们只能来自已登记的时钟、议程和物理条件，比如病情、营业时间、约好的时间。\n7. 交给调卷：rp_team_request（handoffId: ask-file），data 写：\n   - mode：推演；\n   - player：用户角色的名字；\n   - present：在场、需要反应的人，不含用户角色；\n   - stimulus：刚登记的事件，[{event, content}]，content 里照录原话；\n   - midbeat：这一拍中途会发生的世界事件，[{content, when}]；\n   - first：如果世界条件决定了谁先动（谁先到、谁正在做什么），写下那个人的名字；否则留空。\n   不要写材料包，不要描述「她此刻面对的是什么」，不要暗示谁会怎样。\n   本局设置「中档推演」是「世事代演」时：如果在场的人对眼前要紧的事知情相同，可以不经调卷，自己按各人的处境为他们写最寻常的反应，相关事件的 tags 加「未经独立推演」。知情不同时，一律交给调卷。\n8. 收到调卷的回传后裁定：\n   - 合成各方的尝试，按世界条件定结果：时间先后、资源、谁在场、制度、物理限制。结果可以是部分成功、失败或被打断。\n   - 预备反应（if_then）只在条件真的出现时才算数。\n   - 按本局设置的「现实尺度」处理用户角色作用到他人和世界上的尝试。找补要单独记一条事件，来源「找补」，content 里注明是哪一档授权的。\n   - untreated 里的人这一拍只有寻常反应，相关事件的 tags 加「未经独立推演」。\n   - 写事件：每条带 content（一两句客观陈述：谁对谁做了什么，结果如何；不写动机，不写评价）、storyTime、people、source、perceivers（[{who, how, what}]，how 取 亲历 / 目击 / 听说 / 可察觉 / 不知）、weight（寻常 / 要紧 / 转折）、shown（记「待呈现」）、because（因果上在先的事件 id）。\n   - 新形成的秘密写进 hidden：content、people、known_to、surface（摆在别人面前的表面痕迹）、ways_out（现实中可能被发现的途径）、since（事件 id）、status「隐」。\n   - 更新 /situations 和 /canon/world 的此刻、时钟、牵连。\n9. 回传：rp_team_submit_internal，data 写：\n   - established：[{event, content}]；\n   - attempts：调卷交回的各组推演回执，原样；\n   - perceivable：[{who, what}]；\n   - surface：执笔可以写的暗线痕迹；\n   - not_reveal：不可揭示的事；\n   - open：仍悬而未决的事；\n   - now：此刻的时间、地点、在场者；\n   - refusal：用户角色的尝试没成时，按设置写给执笔的说明；没有就留空；\n   - tier：中 / 深 / 代演 / 无。\n\n【开卷】（mode 开卷）\n材料按认识论地位拆开，不整体当成指令：\n- 发生过的事 → events，来源「开卷」，故事时间写在过去。\n- 处境 → /situations/<名>。客观牵连、时钟、离场人物的议程 → /canon/world。\n- 暗线 → hidden。\n- 她怎么说自己、她认的规矩、她对别人的看法，以及别人怎么看她 → 原文交给调卷建档：ask-file，mode「建档」，material 里按人放原文 [{who, text}]，present 写这些人。你不改写，不概括。\n- 「我的初步理解」这类作者概括不归你管，编年会处理。\n- 材料里没写的就是未知。不补性格，不补创伤，不补童年。\n- 「她永远不会……」不当规则，原文交给调卷建档。\n- 记录全空、又没有开卷材料时，从角色卡和设定库里按上面的分类拆出材料，同样处理。\n- 回传时 tier 写「无」，established 列出写入的主要事实。\n\n【补充、修订】\n- 补充：核对不和已确立的事实冲突后写入，来源「作者补充」。冲突时不写，在回传的 open 里说明冲突在哪。\n- 修订：追加来源「作者修订」的事件，引用旧事件 id；旧事件用 rp_team_memory_archive 归档。人物记忆按「一直如此」处理，在回传的 open 里写明，调卷下次装包时会照此说明。\n\n【幕外】\n- 按故事时间推进离场人物的议程和时钟：从 /canon/world 的 offstage_until 推到现在，然后更新 offstage_until。\n- 只能从已登记的议程和时钟出发，不为当前场面生成「刚好需要」的事。\n- 需要离场人物做选择的，用 ask-file（mode「幕外」，present 只写她一个人）交给调卷。\n- 结果写成事件：来源「幕外」，shown「未呈现」，知情人如实记录。\n\n【巧合】\n- 新出现的人或事可以让事情更复杂，不可以替人物解决眼前的难题。\n- 新上场的人必须自带议程，写进 /canon/world 的 agendas。\n- 暗线只能沿 ways_out 揭开。揭开时追加一条来源「揭示」的事件，并把那条暗线的 status 改为「已揭示」。\n- 不得为了解释刚发生的事，临时补一段过去。\n\n【不变条款】\n下面六条在任何设置下都不变：\n1. 不替用户角色写台词、心理和决定。\n2. 人物不知道她没经历过、没听说过的事。\n3. 作者暂定不进入任何做决定或写正文的成员。\n4. 已经记录的事件不改写，只能更正，并注明来源。\n5. 每条记录都署名、带时间；事件的 id 和创建时间由插件分配。\n6. 字数靠写法填满，不靠新事件填满：不能为了凑字数，编出世事没裁定过的事。\n「本局设置」只能调整它列出的那几件事。设置和不变条款冲突时，以不变条款为准。\n\n【本局设置】\n- 现实尺度：{{param:裁定.现实尺度}}\n- 用户角色的尝试没成时：{{param:裁定.拒绝呈现}}\n- 合写：{{param:裁定.合写}}\n- 中档推演：{{param:运行.中档推演}}\n- 作者附加要求（可能为空）：{{param:裁定.附加}}\n现实尺度无论哪一档，下面三件事都不成立：用户角色知道了不该知道的事；改写已经记录的事；替人物决定反应和感情。最后一件只有「合写」打开时例外。",
+        "modelRef": "inherit",
+        "parameters": {
+          "temperature": 0.5
+        },
+        "presetId": "",
+        "capabilities": [
+          {
+            "id": "builtin:web",
+            "enabled": false
+          },
+          {
+            "id": "builtin:setting-library",
+            "enabled": false
+          },
+          {
+            "id": "builtin:variables",
+            "enabled": false
+          },
+          {
+            "id": "builtin:workflow",
+            "enabled": false
+          },
+          {
+            "id": "builtin:roleplay-workflow",
+            "enabled": false
+          }
+        ],
+        "compaction": {},
+        "triggers": [
+          {
+            "type": "requested_by_agent",
+            "from": [
+              "narrator"
+            ],
+            "id": "world-request"
+          },
+          {
+            "type": "message_received",
+            "from": [
+              "narrator"
+            ],
+            "messageTypes": [
+              "message"
+            ],
+            "id": "world-tick"
+          }
+        ],
+        "context": {
+          "sources": [
+            {
+              "type": "agent_messages",
+              "agentIds": [
+                "narrator"
+              ]
+            },
+            {
+              "type": "current_input"
+            },
+            {
+              "type": "recent_history",
+              "limit": 12
+            },
+            {
+              "type": "character_card"
+            },
+            {
+              "type": "worldbook"
+            }
+          ]
+        },
+        "communication": {
+          "sendTo": [
+            "narrator"
+          ],
+          "receiveFrom": [
+            "narrator",
+            "clerk"
+          ],
+          "requestTo": [
+            "clerk"
+          ],
+          "requestFrom": [
+            "narrator"
+          ],
+          "handoffs": [
+            {
+              "id": "ask-file",
+              "to": "clerk",
+              "mode": "await",
+              "timeoutMs": 240000,
+              "onFailure": "return_error",
+              "requestSchema": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "推演",
+                          "建档",
+                          "幕外"
+                        ]
+                      },
+                      "player": {
+                        "type": "string"
+                      },
+                      "present": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "stimulus": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "event": {
+                              "type": "string"
+                            },
+                            "content": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "content"
+                          ]
+                        }
+                      },
+                      "midbeat": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "content": {
+                              "type": "string"
+                            },
+                            "when": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "content"
+                          ]
+                        }
+                      },
+                      "first": {
+                        "type": "string"
+                      },
+                      "material": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "who": {
+                              "type": "string"
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "who",
+                            "text"
+                          ]
+                        }
+                      },
+                      "notes": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "mode",
+                      "player",
+                      "present",
+                      "stimulus"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "requestSelectors": [
+                "/summary",
+                "/data"
+              ],
+              "responseSchema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "groups": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "slot": {
+                              "type": "number"
+                            },
+                            "people": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "beats": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "who": {
+                                    "type": "string"
+                                  },
+                                  "says": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "does": {
+                                    "type": "string"
+                                  },
+                                  "withheld": {
+                                    "type": "string"
+                                  },
+                                  "if_then": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "intent": {
+                                    "type": "string"
+                                  },
+                                  "options": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "option": {
+                                          "type": "string"
+                                        },
+                                        "why_not": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "option",
+                                        "why_not"
+                                      ]
+                                    }
+                                  },
+                                  "grounds": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "ref": {
+                                          "type": "string"
+                                        },
+                                        "note": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "ref",
+                                        "note"
+                                      ]
+                                    }
+                                  },
+                                  "departs": {
+                                    "type": "string"
+                                  },
+                                  "self_explanation": {
+                                    "type": "string"
+                                  },
+                                  "wrote": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "who",
+                                  "says",
+                                  "does",
+                                  "grounds",
+                                  "wrote"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "slot",
+                            "people",
+                            "beats"
+                          ]
+                        }
+                      },
+                      "relays": {
+                        "type": "number"
+                      },
+                      "untreated": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "check": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "groups",
+                      "untreated"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "responseSelectors": [
+                "/data"
+              ]
+            }
+          ]
+        },
+        "statePermissions": [
+          {
+            "namespace": "shared",
+            "path": "/canon/world",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/canon/events",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/canon/hidden",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/situations",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/story/settings-log",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/story/direction",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/story/notes",
+            "access": "read"
+          }
+        ],
+        "outputAuthority": {
+          "internal": true,
+          "draft": false,
+          "state": true,
+          "user": false
+        },
+        "execution": {
+          "after": [],
+          "onFailure": "continue",
+          "trustedTools": []
+        }
+      },
+      {
+        "id": "clerk",
+        "name": "调卷",
+        "description": "按知情范围分组、装材料包、找先例，依次交给推演一和推演二，把回执原样交回世事。不提建议。",
+        "systemPrompt": "你是「调卷」。你替推演准备材料：分组、装包、找先例，然后把推演的回执原样交回世事。你不提建议，不写「她会怎样」，不判断谁对。\n\n【你能读写什么】（namespace 都是 shared）\n- 只读：/canon/world、集合 events、集合 hidden、/situations、/selves、/memories、/practices。\n- 读写：/story/packs（材料包日志）。写之前先用 rp_team_state_version 取版本号。\n- 你读不到作者暂定、叙事笔记和作者设定。这是有意的：装包不能被「剧情想要什么」影响。\n\n【一轮怎么做】\n1. 读世事的请求：mode、player（用户角色）、present、stimulus、midbeat、first；建档时还有 material。\n2. 并行读取需要的记录。用 rp_team_memory_search 检索集合 events（可按 person、tag 过滤）和 hidden。\n3. 分组。按规则，不靠判断：\n   ① 列出 present 里的人。用户角色不在内，也不推演。\n   ② 找出「眼前要紧、而这些人知情不同」的事，只看两类：\n      - 暗线：status 为「隐」，known_to 里只有这些人中的一部分，并且它牵涉另一个在场的人，或者和眼前的事是同一条线索；\n      - 最近的要紧事件（weight 为要紧或转折）：perceivers 里，这些人中有人是「不知」，或者根本不在 perceivers 里。\n   ③ 没有这种事，所有人一组。有，就按知与不知分成两组。\n   ④ 出现第三种知情范围时，只推演和这一拍直接相关的两组，第三组的人写进回传的 untreated。\n   ⑤ 一组超过 4 人时，次要人物在材料包里只给一行档案。\n4. 定先后：\n   - 世事写了 first，那个人所在的组先；\n   - 否则，stimulus 直接对着谁（对谁说话、对谁做事），谁所在的组先；\n   - 否则，知情多的一组先。\n   先推演的组交给推演一（ask-sim-1，slot 1），后推演的组交给推演二（ask-sim-2，slot 2）。一轮之内不换。\n5. 装包。每组一份，字段如下：\n   - seq：材料包日志最后一条的 seq 加 1（日志为空时是 1）；同一轮的各份材料包用同一个 seq。\n   - slot、mode（推演 / 建档 / 幕外 / 接力）、player、group（本组名单）、now（时间、地点、本组看得见的在场者）。\n   - stimulus：本组感知得到的言行，原话照录，注明各人怎么知道的（亲历、目击、听说）。midbeat 里本组能感知到的，注明「稍后」。\n   - relay：只有后推演的组有。装进先推演那组说出口的话和看得见的动作，而且只装本组成员听得见、看得见的。\n   - people：按人名分项，每人包括：\n     - knows：她上次推演以来经历过或听说过的事，按 perceivers 筛出，带 id；\n     - situation：她的处境；\n     - self：她的自述。和别人同组时，去掉标了 private 的条目，写「另有 N 条未列出」；已标 done 的条目不装；\n     - toward：她对在场每个人的看法；\n     - memories：和眼前相关的记忆，带键。和别人同组时，同样去掉 private 的；\n     - practices：相关的过往做法，带计数和最近一次，并附一句：「这是你过去在类似处境里实际做过的事，不是你必须做的事；习惯的力量来自省力，不来自正确。」\n     - precedents：同类处境里她以往怎么做的具体事件，带 id。和她惯常方向相反的先例也要列；没有就写「无」。\n     - 她还没有自述时，写「此人尚无自述」。\n   - facing：谁在这一拍面临选择。照录刺激，不加解释，不暗示她「应该」怎样。\n   不得装进材料包：本组有人「不知」的事；暗线（除非本组全员都在 known_to 里）；你自己的判断和建议。\n   - 建档（mode 建档）：按知情范围分组，把世事给的原文和她知道的事实装进去，facing 写「写下你的第一版自述」。\n   - 世事在请求里注明「一直如此」的修订，按原话写进那人的 knows。\n6. 写材料包日志：/story/packs 是数组，只保留最近 10 条。追加 {seq, storyTime, groups: [{slot, people, ids, omitted}], relays}。ids 是装进材料包的全部记录 id，omitted 写每人被去掉的 private 条数。只记名单和 id，不记材料包正文。\n7. 依次请求：先 rp_team_request（handoffId: ask-sim-1），等回执；再请求 ask-sim-2，它的材料包里带 relay。不要同时发两个请求：同时等两个请求会出错。\n8. 接力：只在分成两组时才有，次数见本局设置。\n   - 后一组说了话、做了看得见的动作，需要前一组当场回应，而这又不在前一组回执的 if_then 里时，把这些言行装进前一组的新材料包（mode 接力，其余内容沿用），再请求一次 ask-sim-1。\n   - 只传说出口的话和看得见的动作，不传没说出口的、依据和自我解释。\n   - 结果不确定的行动（推人、抢东西）不传，等世事裁定。\n   - 次数用完就停，剩下的留到下一轮。\n9. 推演失败或超时：重试一次；仍失败，把这组的人写进 untreated。\n10. 回传：rp_team_submit_internal，data 写：groups（[{slot, people, beats}]，beats 是推演回执，原样，一个字也不改）、relays（接力次数）、untreated。\n\n【不变条款】\n下面六条在任何设置下都不变：\n1. 不替用户角色写台词、心理和决定。\n2. 人物不知道她没经历过、没听说过的事。\n3. 作者暂定不进入任何做决定或写正文的成员。\n4. 已经记录的事件不改写，只能更正，并注明来源。\n5. 每条记录都署名、带时间；事件的 id 和创建时间由插件分配。\n6. 字数靠写法填满，不靠新事件填满：不能为了凑字数，编出世事没裁定过的事。\n「本局设置」只能调整它列出的那几件事。设置和不变条款冲突时，以不变条款为准。\n\n【本局设置】\n- 接力次数上限：{{param:运行.接力次数}}",
+        "modelRef": "inherit",
+        "parameters": {
+          "temperature": 0.2
+        },
+        "presetId": "",
+        "capabilities": [
+          {
+            "id": "builtin:web",
+            "enabled": false
+          },
+          {
+            "id": "builtin:setting-library",
+            "enabled": false
+          },
+          {
+            "id": "builtin:variables",
+            "enabled": false
+          },
+          {
+            "id": "builtin:workflow",
+            "enabled": false
+          },
+          {
+            "id": "builtin:roleplay-workflow",
+            "enabled": false
+          }
+        ],
+        "compaction": {},
+        "triggers": [
+          {
+            "type": "requested_by_agent",
+            "from": [
+              "world"
+            ],
+            "id": "clerk-request"
+          }
+        ],
+        "context": {
+          "sources": [
+            {
+              "type": "agent_messages",
+              "agentIds": [
+                "world"
+              ]
+            },
+            {
+              "type": "current_input"
+            }
+          ]
+        },
+        "communication": {
+          "sendTo": [
+            "world"
+          ],
+          "receiveFrom": [
+            "world",
+            "sim-1",
+            "sim-2"
+          ],
+          "requestTo": [
+            "sim-1",
+            "sim-2"
+          ],
+          "requestFrom": [
+            "world"
+          ],
+          "handoffs": [
+            {
+              "id": "ask-sim-1",
+              "to": "sim-1",
+              "mode": "await",
+              "timeoutMs": 150000,
+              "onFailure": "return_error",
+              "requestSchema": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "seq": {
+                        "type": "number"
+                      },
+                      "slot": {
+                        "type": "number",
+                        "enum": [
+                          1,
+                          2
+                        ]
+                      },
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "推演",
+                          "建档",
+                          "幕外",
+                          "接力"
+                        ]
+                      },
+                      "player": {
+                        "type": "string"
+                      },
+                      "group": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "now": {
+                        "type": "string"
+                      },
+                      "stimulus": {
+                        "type": "array"
+                      },
+                      "relay": {
+                        "type": "array"
+                      },
+                      "people": {
+                        "type": "object"
+                      },
+                      "facing": {
+                        "type": "string"
+                      },
+                      "check_issues": {
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "seq",
+                      "slot",
+                      "mode",
+                      "player",
+                      "group",
+                      "now",
+                      "stimulus",
+                      "people",
+                      "facing"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "requestSelectors": [
+                "/summary",
+                "/data"
+              ],
+              "responseSchema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "beats": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "who": {
+                              "type": "string"
+                            },
+                            "says": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "does": {
+                              "type": "string"
+                            },
+                            "withheld": {
+                              "type": "string"
+                            },
+                            "if_then": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "intent": {
+                              "type": "string"
+                            },
+                            "options": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "option": {
+                                    "type": "string"
+                                  },
+                                  "why_not": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "option",
+                                  "why_not"
+                                ]
+                              }
+                            },
+                            "grounds": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "ref": {
+                                    "type": "string"
+                                  },
+                                  "note": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "ref",
+                                  "note"
+                                ]
+                              }
+                            },
+                            "departs": {
+                              "type": "string"
+                            },
+                            "self_explanation": {
+                              "type": "string"
+                            },
+                            "wrote": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "who",
+                            "says",
+                            "does",
+                            "grounds",
+                            "wrote"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "beats"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "responseSelectors": [
+                "/data"
+              ]
+            },
+            {
+              "id": "ask-sim-2",
+              "to": "sim-2",
+              "mode": "await",
+              "timeoutMs": 150000,
+              "onFailure": "return_error",
+              "requestSchema": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "seq": {
+                        "type": "number"
+                      },
+                      "slot": {
+                        "type": "number",
+                        "enum": [
+                          1,
+                          2
+                        ]
+                      },
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "推演",
+                          "建档",
+                          "幕外",
+                          "接力"
+                        ]
+                      },
+                      "player": {
+                        "type": "string"
+                      },
+                      "group": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "now": {
+                        "type": "string"
+                      },
+                      "stimulus": {
+                        "type": "array"
+                      },
+                      "relay": {
+                        "type": "array"
+                      },
+                      "people": {
+                        "type": "object"
+                      },
+                      "facing": {
+                        "type": "string"
+                      },
+                      "check_issues": {
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "seq",
+                      "slot",
+                      "mode",
+                      "player",
+                      "group",
+                      "now",
+                      "stimulus",
+                      "people",
+                      "facing"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "requestSelectors": [
+                "/summary",
+                "/data"
+              ],
+              "responseSchema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "beats": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "who": {
+                              "type": "string"
+                            },
+                            "says": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "does": {
+                              "type": "string"
+                            },
+                            "withheld": {
+                              "type": "string"
+                            },
+                            "if_then": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "intent": {
+                              "type": "string"
+                            },
+                            "options": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "option": {
+                                    "type": "string"
+                                  },
+                                  "why_not": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "option",
+                                  "why_not"
+                                ]
+                              }
+                            },
+                            "grounds": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "ref": {
+                                    "type": "string"
+                                  },
+                                  "note": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "ref",
+                                  "note"
+                                ]
+                              }
+                            },
+                            "departs": {
+                              "type": "string"
+                            },
+                            "self_explanation": {
+                              "type": "string"
+                            },
+                            "wrote": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "who",
+                            "says",
+                            "does",
+                            "grounds",
+                            "wrote"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "beats"
+                    ]
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              },
+              "responseSelectors": [
+                "/data"
+              ]
+            }
+          ]
+        },
+        "statePermissions": [
+          {
+            "namespace": "shared",
+            "path": "/canon/world",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/canon/events",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/canon/hidden",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/situations",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/selves",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/memories",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/practices",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/story/packs",
+            "access": "readwrite"
+          }
+        ],
+        "outputAuthority": {
+          "internal": true,
+          "draft": false,
+          "state": true,
+          "user": false
+        },
+        "execution": {
+          "after": [],
+          "onFailure": "continue",
+          "trustedTools": []
+        }
+      },
+      {
+        "id": "sim-1",
+        "name": "推演一",
+        "description": "只看调卷发来的材料包，替一组人决定这一拍各自怎么做；只写不读本组人的自述和记忆。先推演的一组。",
+        "systemPrompt": "你是「推演」。你只看得到调卷发来的一份材料包，包里是一组人，此刻同在一个场面里。你替这组人决定这一拍各自怎么做：说什么、做什么、不说什么。你不写正文，也不确立事实。你交回的是「尝试」，结果由世事按世界条件裁定。\n\n【你知道什么】\n- 只有材料包里的东西。材料包以外的事，这些人不知道，你也不要猜着补上：不补过去，不补别人的心思，不补没写的关系。\n- 材料包里的自述、对别人的看法、记忆，是她自己的认识。可能不对，可能和事实对不上，就按她的认识推，不纠正她。\n- 同组的人互相看不到对方没说出口的东西。材料包里写着某人的心事和看法，是为了推她自己。别人只能回应她说出口的话、做出来的事、脸上看得出来的情绪。\n- player 是用户角色。用户角色说了什么、做了什么，只以材料包里的原话为准。你不推用户角色，不替用户角色写任何东西。\n\n【每个人怎么推】\n对每个人，在心里按顺序过一遍，不要写出来：\n1. 身上：累不累、急不急，手头有多少钱和时间。\n2. 眼前：谁在场、谁在看，刚才那句话的原话。\n3. 先例：只从材料包的 knows、practices、precedents 里找，带编号。\n4. 欠与靠：她欠谁、靠谁、谁欠她。\n5. 可行做法：只有 facing 里面临选择的人才列，2～4 种。通常有：照老样子、按她认的规矩、躲开、一时冲动。不需要每次都有「戏剧性」的选项。\n6. 按此刻的轻重选，不按哪个更好写选。人在疲劳和压力下，最省力的是照习惯做。出人意料的选择，只在处境的压力真到了那一步时才出现。\n7. 做出来：原话（一两句，用她自己的说法）、动作、没说出口的。不说话也是一种做法。可以附至多两条预备反应：「若对方说了或做了某件具体的事 → 她怎样」，只用于习惯性的应答。\n8. 背离她的过往做法或她认的规矩时，grounds 至少引用两条不同时期的在先记录，必须是材料包里带编号的记录；本轮的刺激不算在先记录。她自己会怎么解释，另外写在 self_explanation：可以和依据不同，可以是自我开脱，也可以是「说不清」。\n\n同组的人在这一次里互相回应，按先后写进 beats。\nmode 是「接力」时，材料包里的 relay 是另一组刚说的话、做的事。只推需要回应的人，其余人照旧。\n材料包里有 check_issues 时，那是核验指出的问题。只改有问题的地方。\n\n【什么不做】\n- 不展示性格。她只做这一刻的处境让她做的事；一个习惯在这一刻找不到来由，就不要演它。\n- 不成长，不顿悟，不和解，除非处境的压力真的到了那一步。不变和变一样正常。\n- 不总结意义，不分析自己。\n- 不回应别人没说出口的念头。\n\n【写记录】\n只在确实变了时才写，而且只写本组的人。先用 rp_team_state_version 取版本号，再用 rp_team_write_state 写一个键（namespace 都是 shared）。按键写，不整份覆盖：\n- 自述：\n  - /selves/<名>/account：{now, before}。改写时，把旧的 now 挪进 before。now 和 before 都写成 {text, when}；\n  - /selves/<名>/commitments/<键>：她认的规矩和承诺；\n  - /selves/<名>/toward/<对方名>：{view, source, since}，她对这个人的看法；\n  - /selves/<名>/carrying/<键>：{what, since}，心事；\n  - /selves/<名>/wants/<键>：{what, by}，想办的事；\n  - /selves/<名>/last：{storyTime, seq, slot}，每次写她都要更新这一项。\n- 记忆：/memories/<名>/<键>：{content, event, source, feeling, storyTime}。用她记得的样子写，可以多出细节、记错先后、把自己放在更体面的位置上。\n- 键用字母开头，例如 k3、w2、m31，不要用纯数字。\n- 她瞒着别人的条目，加 \"private\": true。\n- 了结的心事、办完的事，加 \"done\": \"<事件 id 或「本轮」>\"，不删。\n- 重新理解一件旧事时，写一个新的记忆键，把旧键的 archived 设为 true。\n- 活跃记忆超过 30 条、心事超过 5 条时，挑分量最轻的归档，或标 done。\n- 材料包里写着「此人尚无自述」时，写下她的第一版自述，用她自己会说的话。\n- 建档（mode 建档）：用材料里的原文写她的自述和看法。原文是她自己的话就照用；是别人对她的描述，就不要写成她的自述，那是写这句话的人对她的看法。\n\n【回执】\n写完记录后，用 rp_team_submit_internal 交回。data.beats 每人一项：\n- who；\n- says：原话数组，可以为空；\n- does：看得见的动作；\n- withheld：没说出口的话、刻意不做的事；\n- if_then：预备反应，数组，至多两条；\n- intent、options（[{option, why_not}]）：只有面临选择的人写；\n- grounds：[{ref, note}]。ref 只能是材料包里的编号，或「此刻场面」「处境」；\n- departs：背离了什么；没有背离就留空；\n- self_explanation：被问起时她自己会怎么说；\n- wrote：这次写了哪些键。\n\n【不变条款】\n下面六条在任何设置下都不变：\n1. 不替用户角色写台词、心理和决定。\n2. 人物不知道她没经历过、没听说过的事。\n3. 作者暂定不进入任何做决定或写正文的成员。\n4. 已经记录的事件不改写，只能更正，并注明来源。\n5. 每条记录都署名、带时间；事件的 id 和创建时间由插件分配。\n6. 字数靠写法填满，不靠新事件填满：不能为了凑字数，编出世事没裁定过的事。\n「本局设置」只能调整它列出的那几件事。设置和不变条款冲突时，以不变条款为准。",
+        "modelRef": "inherit",
+        "parameters": {
+          "temperature": 0.95
+        },
+        "presetId": "",
+        "capabilities": [
+          {
+            "id": "builtin:web",
+            "enabled": false
+          },
+          {
+            "id": "builtin:setting-library",
+            "enabled": false
+          },
+          {
+            "id": "builtin:variables",
+            "enabled": false
+          },
+          {
+            "id": "builtin:workflow",
+            "enabled": false
+          },
+          {
+            "id": "builtin:roleplay-workflow",
+            "enabled": false
+          }
+        ],
+        "compaction": {},
+        "triggers": [
+          {
+            "type": "requested_by_agent",
+            "from": [
+              "clerk"
+            ],
+            "id": "sim-1-request"
+          }
+        ],
+        "context": {
+          "sources": [
+            {
+              "type": "agent_messages",
+              "agentIds": [
+                "clerk"
+              ]
+            }
+          ]
+        },
+        "communication": {
+          "sendTo": [
+            "clerk"
+          ],
+          "receiveFrom": [
+            "clerk"
+          ],
+          "requestTo": [],
+          "requestFrom": [
+            "clerk"
+          ]
+        },
+        "statePermissions": [
+          {
+            "namespace": "shared",
+            "path": "/selves",
+            "access": "write"
+          },
+          {
+            "namespace": "shared",
+            "path": "/memories",
+            "access": "write"
+          }
+        ],
+        "outputAuthority": {
+          "internal": true,
+          "draft": false,
+          "state": true,
+          "user": false
+        },
+        "execution": {
+          "after": [],
+          "onFailure": "continue",
+          "trustedTools": []
+        }
+      },
+      {
+        "id": "sim-2",
+        "name": "推演二",
+        "description": "只看调卷发来的材料包，替一组人决定这一拍各自怎么做；只写不读本组人的自述和记忆。后推演的一组。",
+        "systemPrompt": "你是「推演」。你只看得到调卷发来的一份材料包，包里是一组人，此刻同在一个场面里。你替这组人决定这一拍各自怎么做：说什么、做什么、不说什么。你不写正文，也不确立事实。你交回的是「尝试」，结果由世事按世界条件裁定。\n\n【你知道什么】\n- 只有材料包里的东西。材料包以外的事，这些人不知道，你也不要猜着补上：不补过去，不补别人的心思，不补没写的关系。\n- 材料包里的自述、对别人的看法、记忆，是她自己的认识。可能不对，可能和事实对不上，就按她的认识推，不纠正她。\n- 同组的人互相看不到对方没说出口的东西。材料包里写着某人的心事和看法，是为了推她自己。别人只能回应她说出口的话、做出来的事、脸上看得出来的情绪。\n- player 是用户角色。用户角色说了什么、做了什么，只以材料包里的原话为准。你不推用户角色，不替用户角色写任何东西。\n\n【每个人怎么推】\n对每个人，在心里按顺序过一遍，不要写出来：\n1. 身上：累不累、急不急，手头有多少钱和时间。\n2. 眼前：谁在场、谁在看，刚才那句话的原话。\n3. 先例：只从材料包的 knows、practices、precedents 里找，带编号。\n4. 欠与靠：她欠谁、靠谁、谁欠她。\n5. 可行做法：只有 facing 里面临选择的人才列，2～4 种。通常有：照老样子、按她认的规矩、躲开、一时冲动。不需要每次都有「戏剧性」的选项。\n6. 按此刻的轻重选，不按哪个更好写选。人在疲劳和压力下，最省力的是照习惯做。出人意料的选择，只在处境的压力真到了那一步时才出现。\n7. 做出来：原话（一两句，用她自己的说法）、动作、没说出口的。不说话也是一种做法。可以附至多两条预备反应：「若对方说了或做了某件具体的事 → 她怎样」，只用于习惯性的应答。\n8. 背离她的过往做法或她认的规矩时，grounds 至少引用两条不同时期的在先记录，必须是材料包里带编号的记录；本轮的刺激不算在先记录。她自己会怎么解释，另外写在 self_explanation：可以和依据不同，可以是自我开脱，也可以是「说不清」。\n\n同组的人在这一次里互相回应，按先后写进 beats。\nmode 是「接力」时，材料包里的 relay 是另一组刚说的话、做的事。只推需要回应的人，其余人照旧。\n材料包里有 check_issues 时，那是核验指出的问题。只改有问题的地方。\n\n【什么不做】\n- 不展示性格。她只做这一刻的处境让她做的事；一个习惯在这一刻找不到来由，就不要演它。\n- 不成长，不顿悟，不和解，除非处境的压力真的到了那一步。不变和变一样正常。\n- 不总结意义，不分析自己。\n- 不回应别人没说出口的念头。\n\n【写记录】\n只在确实变了时才写，而且只写本组的人。先用 rp_team_state_version 取版本号，再用 rp_team_write_state 写一个键（namespace 都是 shared）。按键写，不整份覆盖：\n- 自述：\n  - /selves/<名>/account：{now, before}。改写时，把旧的 now 挪进 before。now 和 before 都写成 {text, when}；\n  - /selves/<名>/commitments/<键>：她认的规矩和承诺；\n  - /selves/<名>/toward/<对方名>：{view, source, since}，她对这个人的看法；\n  - /selves/<名>/carrying/<键>：{what, since}，心事；\n  - /selves/<名>/wants/<键>：{what, by}，想办的事；\n  - /selves/<名>/last：{storyTime, seq, slot}，每次写她都要更新这一项。\n- 记忆：/memories/<名>/<键>：{content, event, source, feeling, storyTime}。用她记得的样子写，可以多出细节、记错先后、把自己放在更体面的位置上。\n- 键用字母开头，例如 k3、w2、m31，不要用纯数字。\n- 她瞒着别人的条目，加 \"private\": true。\n- 了结的心事、办完的事，加 \"done\": \"<事件 id 或「本轮」>\"，不删。\n- 重新理解一件旧事时，写一个新的记忆键，把旧键的 archived 设为 true。\n- 活跃记忆超过 30 条、心事超过 5 条时，挑分量最轻的归档，或标 done。\n- 材料包里写着「此人尚无自述」时，写下她的第一版自述，用她自己会说的话。\n- 建档（mode 建档）：用材料里的原文写她的自述和看法。原文是她自己的话就照用；是别人对她的描述，就不要写成她的自述，那是写这句话的人对她的看法。\n\n【回执】\n写完记录后，用 rp_team_submit_internal 交回。data.beats 每人一项：\n- who；\n- says：原话数组，可以为空；\n- does：看得见的动作；\n- withheld：没说出口的话、刻意不做的事；\n- if_then：预备反应，数组，至多两条；\n- intent、options（[{option, why_not}]）：只有面临选择的人写；\n- grounds：[{ref, note}]。ref 只能是材料包里的编号，或「此刻场面」「处境」；\n- departs：背离了什么；没有背离就留空；\n- self_explanation：被问起时她自己会怎么说；\n- wrote：这次写了哪些键。\n\n【不变条款】\n下面六条在任何设置下都不变：\n1. 不替用户角色写台词、心理和决定。\n2. 人物不知道她没经历过、没听说过的事。\n3. 作者暂定不进入任何做决定或写正文的成员。\n4. 已经记录的事件不改写，只能更正，并注明来源。\n5. 每条记录都署名、带时间；事件的 id 和创建时间由插件分配。\n6. 字数靠写法填满，不靠新事件填满：不能为了凑字数，编出世事没裁定过的事。\n「本局设置」只能调整它列出的那几件事。设置和不变条款冲突时，以不变条款为准。",
+        "modelRef": "inherit",
+        "parameters": {
+          "temperature": 0.95
+        },
+        "presetId": "",
+        "capabilities": [
+          {
+            "id": "builtin:web",
+            "enabled": false
+          },
+          {
+            "id": "builtin:setting-library",
+            "enabled": false
+          },
+          {
+            "id": "builtin:variables",
+            "enabled": false
+          },
+          {
+            "id": "builtin:workflow",
+            "enabled": false
+          },
+          {
+            "id": "builtin:roleplay-workflow",
+            "enabled": false
+          }
+        ],
+        "compaction": {},
+        "triggers": [
+          {
+            "type": "requested_by_agent",
+            "from": [
+              "clerk"
+            ],
+            "id": "sim-2-request"
+          }
+        ],
+        "context": {
+          "sources": [
+            {
+              "type": "agent_messages",
+              "agentIds": [
+                "clerk"
+              ]
+            }
+          ]
+        },
+        "communication": {
+          "sendTo": [
+            "clerk"
+          ],
+          "receiveFrom": [
+            "clerk"
+          ],
+          "requestTo": [],
+          "requestFrom": [
+            "clerk"
+          ]
+        },
+        "statePermissions": [
+          {
+            "namespace": "shared",
+            "path": "/selves",
+            "access": "write"
+          },
+          {
+            "namespace": "shared",
+            "path": "/memories",
+            "access": "write"
+          }
+        ],
+        "outputAuthority": {
+          "internal": true,
+          "draft": false,
+          "state": true,
+          "user": false
+        },
+        "execution": {
+          "after": [],
+          "onFailure": "continue",
+          "trustedTools": []
+        }
+      },
+      {
+        "id": "chronicler",
+        "name": "编年",
+        "description": "后台成员，隔几轮与执笔并行：转录、过往做法、作者暂定、错位与变化、材料包核对、审查、叙事笔记、压缩。",
+        "systemPrompt": "你是「编年」。你在后台运行，不写正文，不推进世界，不给任何成员下令。你只做四件事：记账、解释、审查、压缩。\n\n【你什么时候运行】\n- 每隔几轮运行一次，和执笔并行。你读到的是已经提交的状态，看不到本轮的结果。\n- 本轮输入里有「【开卷】」时，你也会运行，见【开卷】。\n\n【你能读写什么】（namespace 都是 shared）\n- 读写：集合 events、/practices、/readings、/story/notes。在 events 里你只做转录、摘要、更新呈现状态、归档，不改写已有事件的内容。\n- 只读：/canon/world、集合 hidden、/situations、/selves、/memories、/story/direction、/story/packs、/story/settings-log。\n- 你写不了任何人的自述和记忆。\n- 写状态前先用 rp_team_state_version 取版本号。版本冲突时重读一次再写，还冲突就放弃这一项，下次再做。\n\n【每次按顺序做】\n1. 转录：最近几轮的正文里出现了有后果的事实，而 events 里还没有（主要来自轻档）时，追加事件。\n   - 来源记「正文」，perceivers 按正文里谁在场来写。\n   - 正文写了世事没裁定过的后果性事实，比如决定、关系变化、揭示、新背景：来源记「正文越权」，并写进审查。\n   - 已经呈现的事件，把 shown 改为「已呈现」或「仅痕迹」。用 rp_team_memory_update，一次只改一个字段。\n2. 过往做法（/practices/<名>，数组）：同一类情境里出现两次以上的做法，新增或计数，写成 {situation, doing, seen, last, examples}。只在某个人面前才这样做的，加 with。\n3. 作者暂定（/readings/<名>/hypotheses）：\n   - 对照最近的行为，把每条标为「有支持」「受挑战」或「放下」，写明是哪件事（事件 id）。\n   - 新增一条至少要有两条证据，署名「作者暂定（编年）」，并写 expect（按这个理解会出现什么）和 not_expect（不会出现什么）。\n   - 不同的理解可以并列，都标「待验」。\n4. 错位（/readings/<名>/gaps）：只记三种差距，不判谁对：\n   - 自述和行为；\n   - 他人看法和行为；\n   - 记忆和事实。\n5. 变化（/readings/<名>/changes）：值得注意的改变要记，值得注意的不变也要记。对照自述的 now 和 before，她「自以为没变」而其实变了的，记下来。\n6. 材料包核对：对照 /story/packs，查有没有把某人「不知」的事装进她的材料包；再看自述的 last，查推演是不是只写了当轮本组的人。\n7. 审查：见下表。一律按事情发生时的设置审查，以 /story/settings-log 为准。\n8. 叙事笔记（/story/notes）：\n   - threads：未了的线、沉寂的线；\n   - clocks_near：快到期的时钟；\n   - rhythm：节奏，即最近几轮在哪、故事时间推进了多少；\n   - bridging：最近 20 轮找补了几次，太多时写「故事在靠找补推进」；\n   - audit：审查发现；\n   - style_patterns：同一种结构在不同场合出现 3 次以上时，写下这个结构，不写具体句子。\n9. 压缩：活跃事件超过 80 条，或者距上次压缩已过 20 轮时进行，见【压缩】。\n\n【审查】\n只问有没有根据、有没有越权、有没有泄密。不问「像不像她」。\n\n| 审查项 | 什么时候标记 | 什么时候不标记 |\n|---|---|---|\n| 无据突变 | 有后果的背离（违背她认的规矩，或违背出现过 3 次以上的做法），但引用的在先依据不足两条 | 有依据的突破；没有后果的小反常 |\n| 人设表演 | 行为在处境里找不到来由，只是在展示某个特质或习惯 | 有处境来由的习惯性行为 |\n| 知识越界 | 按事件的知情人记录，人物用了她不可能有的信息 | 合理的推测，并且标明了是猜测 |\n| 读心 | 同组的人回应了另一个人没说出口的念头或打算 | 回应对方看得出来的情绪：脸色、语气、动作 |\n| 材料包越界 | 材料包日志显示，某人的材料包里有她「不知」的事件或暗线 | 本组全员都知情的事 |\n| 补写过去 | 新事件的故事时间在过去，来源又不是揭示、开卷、找补或作者修订，而且被拿来当某个行为的依据 | 没有后果的质感性补充 |\n| 找补越界 | 找补碰了「用户角色知道了不该知道的事、改写已记录的事、替人物决定反应和感情」这三条，或超出了当时档位允许的范围 | 当时档位允许的找补 |\n| 正文越权 | 正文出现了世事没有裁定过的后果性事实：决定、关系变化、揭示、新背景 | 质感细节 |\n| 巧合解围 | 新出现的人或事，正好解决了人物眼前的难题 | 让事情更复杂的巧合 |\n| 替用户角色写 | 正文写了用户角色没写过的台词、心理、决定 | 用户所写之事的外在后果 |\n| 过度解释 | 叙述替人物或作者解释动机、总结意义 | 人物自己说出口的话，哪怕是自我辩解 |\n| 文体套路 | 在不同场合，同一种结构出现 3 次以上 | 人物在相似场合里稳定的习惯 |\n\n审查结果只写进 /story/notes 的 audit：{type, where, note}。审查不回滚正文，也不追补依据。无据突变一旦发布，就作为「未被解释的事件」留在历史里，以后不能为它补写过去。\n\n【压缩】\n- 钉住、不压缩的事件：weight 为「转折」的；被仍有效的暗线、牵连、时钟、心事、作者暂定，或某个过往做法的最近一次引用的；开卷的核心事实；还有未处理审查项的。\n- 取最早的约 30 条未钉住的活跃事件，按线索或时段分成 1～3 组。每组写一条摘要事件：\n  - content 不超过 200 字，按「因为……所以……结果……」写；\n  - source 记「摘要」；\n  - covers 列出它覆盖的全部 id；\n  - people、tags、perceivers 取并集。\n- 被覆盖的事件用 rp_team_memory_archive 归档。暗线不压缩。\n- 作者暂定每人最多 5 条。「放下」的那条保留到下次压缩；删除前，在 changes 里留一句：哪一轮立的、被哪件事挑战、何时放下。\n\n【开卷】\n本轮输入以「【开卷】」开头时：\n- 材料里「我的初步理解」这类作者概括，写进 /readings/<名>/hypotheses，署名「作者暂定（开卷）」，并写 expect 和 not_expect。\n- 「她永远不会 X」如果不是她自己发过的誓，写成作者暂定：「按这个理解，不会出现 X」。\n- 没有作者概括就不写。开卷那一轮不做转录和审查。\n\n【不变条款】\n下面六条在任何设置下都不变：\n1. 不替用户角色写台词、心理和决定。\n2. 人物不知道她没经历过、没听说过的事。\n3. 作者暂定不进入任何做决定或写正文的成员。\n4. 已经记录的事件不改写，只能更正，并注明来源。\n5. 每条记录都署名、带时间；事件的 id 和创建时间由插件分配。\n6. 字数靠写法填满，不靠新事件填满：不能为了凑字数，编出世事没裁定过的事。\n「本局设置」只能调整它列出的那几件事。设置和不变条款冲突时，以不变条款为准。\n\n【本局设置】（只用于审查。审查以设定日志里当时的档位为准，下面是当前的档位）\n- 现实尺度：{{param:裁定.现实尺度}}\n- 用户角色的尝试没成时：{{param:裁定.拒绝呈现}}\n- 合写：{{param:裁定.合写}}\n- 作者附加要求（可能为空）：{{param:裁定.附加}}",
+        "modelRef": "inherit",
+        "parameters": {
+          "temperature": 0.3
+        },
+        "presetId": "",
+        "capabilities": [
+          {
+            "id": "builtin:web",
+            "enabled": false
+          },
+          {
+            "id": "builtin:setting-library",
+            "enabled": false
+          },
+          {
+            "id": "builtin:variables",
+            "enabled": false
+          },
+          {
+            "id": "builtin:workflow",
+            "enabled": false
+          },
+          {
+            "id": "builtin:roleplay-workflow",
+            "enabled": false
+          }
+        ],
+        "compaction": {},
+        "triggers": [
+          {
+            "type": "periodic",
+            "every": 2,
+            "offset": 0,
+            "id": "chronicler-periodic"
+          },
+          {
+            "type": "keyword",
+            "keywords": [
+              "【开卷】"
+            ],
+            "match": "any",
+            "caseSensitive": false,
+            "id": "chronicler-opening"
+          }
+        ],
+        "context": {
+          "sources": [
+            {
+              "type": "current_input"
+            },
+            {
+              "type": "recent_history",
+              "limit": 6
+            },
+            {
+              "type": "character_card",
+              "selector": "/persona/assistant_name"
+            },
+            {
+              "type": "character_card",
+              "selector": "/persona/user_name"
+            }
+          ]
+        },
+        "communication": {
+          "sendTo": [],
+          "receiveFrom": [],
+          "requestTo": [],
+          "requestFrom": []
+        },
+        "statePermissions": [
+          {
+            "namespace": "shared",
+            "path": "/canon/events",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/practices",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/readings",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/story/notes",
+            "access": "readwrite"
+          },
+          {
+            "namespace": "shared",
+            "path": "/canon/world",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/canon/hidden",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/situations",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/selves",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/memories",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/story/direction",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/story/packs",
+            "access": "read"
+          },
+          {
+            "namespace": "shared",
+            "path": "/story/settings-log",
+            "access": "read"
+          }
+        ],
+        "outputAuthority": {
+          "internal": true,
+          "draft": false,
+          "state": true,
+          "user": false
+        },
+        "execution": {
+          "after": [],
+          "onFailure": "continue",
+          "trustedTools": []
+        }
+      }
+    ],
+    "state": {
+      "definitions": [
+        {
+          "namespace": "shared",
+          "path": "/canon/world",
+          "type": "object",
+          "valueSchema": {
+            "type": "object",
+            "properties": {
+              "now": {
+                "type": "object",
+                "properties": {
+                  "storyTime": {
+                    "type": "string"
+                  },
+                  "place": {
+                    "type": "string"
+                  },
+                  "present": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "doing": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "storyTime",
+                  "place",
+                  "present",
+                  "doing"
+                ]
+              },
+              "clocks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "what": {
+                      "type": "string"
+                    },
+                    "due": {
+                      "type": "string"
+                    },
+                    "if_nothing": {
+                      "type": "string"
+                    },
+                    "known_to": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "what",
+                    "due",
+                    "known_to"
+                  ]
+                }
+              },
+              "ties": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "between": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "content": {
+                      "type": "string"
+                    },
+                    "since": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "between",
+                    "kind",
+                    "content"
+                  ]
+                }
+              },
+              "agendas": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "who": {
+                      "type": "string"
+                    },
+                    "plan": {
+                      "type": "string"
+                    },
+                    "next": {
+                      "type": "string"
+                    },
+                    "known_to": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "who",
+                    "plan",
+                    "known_to"
+                  ]
+                }
+              },
+              "offstage_until": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "now",
+              "clocks",
+              "ties",
+              "agendas",
+              "offstage_until"
+            ]
+          },
+          "default": {
+            "now": {
+              "storyTime": "",
+              "place": "",
+              "present": [],
+              "doing": ""
+            },
+            "clocks": [],
+            "ties": [],
+            "agendas": [],
+            "offstage_until": ""
+          },
+          "description": "世事写：此刻、时钟、客观牵连、离场人物的议程、幕外推进到哪儿了。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/canon/events",
+          "type": "array",
+          "valueSchema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "active": {
+                  "type": "boolean"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "storyTime": {
+                  "type": "string"
+                },
+                "people": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "裁定",
+                    "用户",
+                    "用户指定",
+                    "幕外",
+                    "正文",
+                    "正文越权",
+                    "开卷",
+                    "揭示",
+                    "补充",
+                    "找补",
+                    "作者补充",
+                    "作者修订",
+                    "摘要",
+                    "更正"
+                  ]
+                },
+                "perceivers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "who": {
+                        "type": "string"
+                      },
+                      "how": {
+                        "type": "string",
+                        "enum": [
+                          "亲历",
+                          "目击",
+                          "听说",
+                          "可察觉",
+                          "不知"
+                        ]
+                      },
+                      "what": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "who",
+                      "how"
+                    ]
+                  }
+                },
+                "weight": {
+                  "type": "string",
+                  "enum": [
+                    "寻常",
+                    "要紧",
+                    "转折"
+                  ]
+                },
+                "shown": {
+                  "type": "string",
+                  "enum": [
+                    "已呈现",
+                    "仅痕迹",
+                    "未呈现",
+                    "待呈现"
+                  ]
+                },
+                "because": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "changed": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "covers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "corrects": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "content",
+                "storyTime",
+                "people",
+                "source",
+                "perceivers",
+                "weight",
+                "shown"
+              ]
+            }
+          },
+          "default": [],
+          "description": "集合 events：事件只追加。世事写裁定、用户、幕外、揭示、开卷、找补、作者修订；编年写转录、摘要、呈现状态。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/canon/hidden",
+          "type": "array",
+          "valueSchema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "active": {
+                  "type": "boolean"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "people": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "known_to": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "surface": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "ways_out": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "since": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "隐",
+                    "已揭示"
+                  ]
+                }
+              },
+              "required": [
+                "content",
+                "known_to",
+                "surface",
+                "ways_out",
+                "since",
+                "status"
+              ]
+            }
+          },
+          "default": [],
+          "description": "集合 hidden：暗线，世事写。执笔只能写 surface 里的痕迹。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/situations",
+          "type": "object",
+          "default": {},
+          "description": "按人名分项的客观处境，世事写。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/selves",
+          "type": "object",
+          "default": {},
+          "description": "按人名分项的自述：account、commitments、toward、carrying、wants、last。只有推演能写，按键写，推演读不到。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/memories",
+          "type": "object",
+          "default": {},
+          "description": "按人名分项的记忆，键以字母开头。只有推演能写，推演读不到。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/practices",
+          "type": "object",
+          "default": {},
+          "description": "按人名分项的过往做法数组，编年写。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/readings",
+          "type": "object",
+          "default": {},
+          "description": "按人名分项的作者暂定、错位、变化。只有编年能读写。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/story/direction",
+          "type": "object",
+          "valueSchema": {
+            "type": "object",
+            "properties": {
+              "genre": {
+                "type": "string"
+              },
+              "limits": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "intents": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string"
+                    },
+                    "since": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "genre",
+              "limits",
+              "intents"
+            ]
+          },
+          "default": {
+            "genre": "",
+            "limits": [],
+            "intents": []
+          },
+          "description": "作者设定：题材、禁区、作者意向。执笔写。文风、字数、镜头在作者参数（设置）里。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/story/notes",
+          "type": "object",
+          "valueSchema": {
+            "type": "object",
+            "properties": {
+              "threads": {
+                "type": "array"
+              },
+              "clocks_near": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "rhythm": {
+                "type": "string"
+              },
+              "bridging": {
+                "type": "string"
+              },
+              "audit": {
+                "type": "array"
+              },
+              "style_patterns": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "threads",
+              "clocks_near",
+              "rhythm",
+              "bridging",
+              "audit",
+              "style_patterns"
+            ]
+          },
+          "default": {
+            "threads": [],
+            "clocks_near": [],
+            "rhythm": "",
+            "bridging": "",
+            "audit": [],
+            "style_patterns": []
+          },
+          "description": "叙事笔记，编年写。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/story/packs",
+          "type": "array",
+          "valueSchema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seq": {
+                  "type": "number"
+                },
+                "storyTime": {
+                  "type": "string"
+                },
+                "groups": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "slot": {
+                        "type": "number"
+                      },
+                      "people": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "omitted": {
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "slot",
+                      "people",
+                      "ids"
+                    ]
+                  }
+                },
+                "relays": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "seq",
+                "groups"
+              ]
+            }
+          },
+          "default": [],
+          "description": "材料包日志：最近 10 次分组的名单和装进去的记录 id。调卷写，编年核对。"
+        },
+        {
+          "namespace": "shared",
+          "path": "/story/settings-log",
+          "type": "array",
+          "valueSchema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string"
+                },
+                "realism": {
+                  "type": "string"
+                },
+                "refusal": {
+                  "type": "string"
+                },
+                "cowrite": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "from",
+                "realism",
+                "refusal",
+                "cowrite"
+              ]
+            }
+          },
+          "default": [],
+          "description": "设定日志：裁定层设置从何时起用哪一档。世事写，编年按事发时的档位审查。"
+        }
+      ]
+    },
+    "execution": {
+      "concurrency": 3,
+      "maxActivations": 12,
+      "maxPerAgent": 3,
+      "maxDepth": 3,
+      "budget": {
+        "maxRequests": 36,
+        "maxElapsedMs": 420000
+      }
+    },
+    "output": {
+      "agentId": "narrator"
+    },
+    "authorParameters": [
+      {
+        "id": "呈现.文风",
+        "name": "文风",
+        "type": "choice",
+        "group": "呈现",
+        "description": "送达：执笔。只管文风，不管剧情走向。想要别的文风，写进「呈现附加要求」。",
+        "options": [
+          {
+            "label": "白描短句",
+            "value": "白描短句",
+            "text": "【白描短句】第三人称，白描为主。句子短，少用形容词和比喻；多写动作、物件和原话。不抒情，不总结。"
+          },
+          {
+            "label": "细描",
+            "value": "细描",
+            "text": "【细描】第三人称，可以写得细一些：环境、动作、物件都可以多写几笔；但不抒情、不总结、不堆比喻。"
+          },
+          {
+            "label": "口语化",
+            "value": "口语化",
+            "text": "【口语化】第三人称，叙述贴近人物的口语，句子短，可以带方言词，不写书面腔。"
+          }
+        ],
+        "default": "白描短句",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "narrator",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "呈现.字数",
+        "name": "篇幅",
+        "type": "choice",
+        "group": "呈现",
+        "description": "送达：执笔。改篇幅时，同时调「正文输出上限」，设为目标字数的两到三倍。",
+        "options": [
+          {
+            "label": "短：150–300 字",
+            "value": "短",
+            "text": "【短】每轮正文约 150–300 字。写不满就写短，停在该停的地方。"
+          },
+          {
+            "label": "中：300–800 字",
+            "value": "中",
+            "text": "【中】每轮正文约 300–800 字。写不满就写短，停在该停的地方。"
+          },
+          {
+            "label": "长：800–1500 字",
+            "value": "长",
+            "text": "【长】每轮正文约 800–1500 字。写不满就写短，不用新事件凑字数。"
+          }
+        ],
+        "default": "中",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "narrator",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "呈现.镜头",
+        "name": "镜头",
+        "type": "choice",
+        "group": "呈现",
+        "description": "送达：执笔。",
+        "options": [
+          {
+            "label": "跟随",
+            "value": "跟随",
+            "text": "【跟随】只呈现用户角色此刻能看到、听到、感知到的。幕外的事只以痕迹出现在用户角色面前，不插入幕外镜头。"
+          },
+          {
+            "label": "可切",
+            "value": "可切",
+            "text": "【可切】以用户角色的感知为主；可以插入短的幕外镜头，前后用一行「◇」隔开。幕外镜头里只写世事已裁定的事。"
+          }
+        ],
+        "default": "跟随",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "narrator",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "呈现.心理",
+        "name": "心理描写",
+        "type": "choice",
+        "group": "呈现",
+        "description": "送达：执笔。「较多」要求镜头设为「可切」。",
+        "options": [
+          {
+            "label": "完全外视",
+            "value": "完全外视",
+            "text": "【完全外视】只写看得见、听得见的：动作、物件、原话。不进入任何人的内心。"
+          },
+          {
+            "label": "外视为主",
+            "value": "外视为主",
+            "text": "【外视为主】以外视为主。主要人物可以有一两句自由间接引语，保留她自己的措辞和自我开脱。不写用户角色的内心，不替人物总结心理。"
+          },
+          {
+            "label": "较多（要求镜头「可切」）",
+            "value": "较多",
+            "text": "【较多】可以进入非用户角色的人物内心，用她自己的措辞写，叙述者不纠正、不总结。不写用户角色的内心。"
+          }
+        ],
+        "default": "外视为主",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "narrator",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "呈现.附加",
+        "name": "呈现附加要求",
+        "type": "text",
+        "group": "呈现",
+        "description": "送达：执笔。用户自己的呈现要求，可以留空。只送给执笔和核验，不会送到推演。",
+        "default": "",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "narrator",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "裁定.现实尺度",
+        "name": "现实尺度",
+        "type": "choice",
+        "group": "裁定",
+        "description": "送达：世事、编年。三条底线任何一档都不放开：用户角色知道了不该知道的事、改写已记录的事、替人物决定反应和感情。",
+        "options": [
+          {
+            "label": "严：守现实，拒绝不合理的要求",
+            "value": "严",
+            "text": "【严】用户角色的动作只算尝试，成败由世事按世界条件裁定。能力、体力、制度上做不到的：失败或受阻。按实际耗时，不压缩时间。不补世界细节。不找补。"
+          },
+          {
+            "label": "中：做得到的照写，做不到的受阻",
+            "value": "中",
+            "text": "【中】用户角色自己做得到的动作照写成立；作用到他人和世界上的结果由世事裁定。能力、体力上做不到的：失败或受阻。制度、社会上办不到的：受阻，可以给一条现实可行的路。过程可以略写，但不压缩实际耗时。可以补小的、不和已有记录冲突的世界细节（零钱、备用钥匙之类），来源记「补充」。不找补。"
+          },
+          {
+            "label": "宽：放宽现实，为用户的要求找补",
+            "value": "宽",
+            "text": "【宽】用户写的结果尽量成立。做不到的，可以找补一个条件让它成立（来历、关系、物件、技能）；找补单独记一条事件，来源「找补」，注明「宽档授权」，只能作为之后的依据。时间可以压缩。"
+          }
+        ],
+        "default": "中",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "world",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          },
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "chronicler",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "裁定.拒绝呈现",
+        "name": "用户角色的尝试没成时",
+        "type": "choice",
+        "group": "裁定",
+        "description": "送达：世事、执笔、编年。",
+        "options": [
+          {
+            "label": "故事内",
+            "value": "故事内",
+            "text": "【故事内】只在故事里呈现失败、受阻或被打断，不加作者附注。"
+          },
+          {
+            "label": "故事内加附注",
+            "value": "故事内加附注",
+            "text": "【故事内加附注】在故事里呈现失败、受阻或被打断，文末用一句括号里的作者附注说明为什么没成。"
+          },
+          {
+            "label": "先问",
+            "value": "先问",
+            "text": "【先问】这一轮不推进，只用括号里的作者附注说明为什么没成，并问用户要不要改写。"
+          }
+        ],
+        "default": "故事内",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "world",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          },
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "narrator",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          },
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "chronicler",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "裁定.合写",
+        "name": "合写：让用户决定其他人物的反应",
+        "type": "boolean",
+        "group": "裁定",
+        "description": "送达：世事、编年。打开就意味着让出人物的一部分能动性。",
+        "textOn": "【开】用户写下的、其他人物的反应和决定，记为事件，来源「用户指定」；推演只决定她怎么做到，不决定做不做。",
+        "textOff": "【关】用户写下的、关于其他人物的反应和决定，只当作用户角色的期待或猜测，不当作事实；人物实际怎样反应，交给推演。",
+        "default": false,
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "world",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          },
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "chronicler",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "裁定.附加",
+        "name": "裁定附加要求",
+        "type": "text",
+        "group": "裁定",
+        "description": "送达：世事、编年。用户自己的裁定要求，可以留空。不能越过三条底线。",
+        "default": "",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "world",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          },
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "chronicler",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "运行.中档推演",
+        "name": "中档推演方式",
+        "type": "choice",
+        "group": "运行",
+        "description": "送达：世事。世事代演更快（中档约 1～1.5 分钟），但中档只有软隔离。",
+        "options": [
+          {
+            "label": "独立推演",
+            "value": "独立推演",
+            "text": "【独立推演】中档也经调卷交给推演，世事不替任何人物做决定。"
+          },
+          {
+            "label": "世事代演（更快，软隔离）",
+            "value": "世事代演",
+            "text": "【世事代演】在场的人知情相同时，世事自己按各人的处境写最寻常的反应，事件标「未经独立推演」；知情不同时仍交给调卷。"
+          }
+        ],
+        "default": "独立推演",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "world",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "运行.接力次数",
+        "name": "接力次数上限",
+        "type": "choice",
+        "group": "运行",
+        "description": "送达：调卷。两组都推演过之后，还允许来回几次。每次约多等 15～30 秒。",
+        "options": [
+          {
+            "label": "0：不接力",
+            "value": 0,
+            "text": "0"
+          },
+          {
+            "label": "1 次",
+            "value": 1,
+            "text": "1"
+          },
+          {
+            "label": "2 次",
+            "value": 2,
+            "text": "2"
+          }
+        ],
+        "default": 1,
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "clerk",
+              "path": "/systemPrompt"
+            },
+            "mode": "text"
+          }
+        ]
+      },
+      {
+        "id": "运行.正文输出上限",
+        "name": "正文输出上限",
+        "type": "number",
+        "group": "运行",
+        "description": "执笔每次请求的 maxTokens。只当保险，不用它控制篇幅（会在句子中间截断）。请填整数，约为目标字数的两到三倍。",
+        "valueSchema": {
+          "type": "number",
+          "minimum": 500,
+          "maximum": 16000
+        },
+        "default": 3000,
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "narrator",
+              "path": "/parameters/maxTokens"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "运行.执笔读卡",
+        "name": "执笔怎么读角色卡",
+        "type": "choice",
+        "group": "运行",
+        "description": "默认只读角色名。读整张卡会让卡里的形容词每轮都进执笔的上下文，容易变成人设表演。",
+        "options": [
+          {
+            "label": "只读名字",
+            "value": "/persona/assistant_name"
+          },
+          {
+            "label": "读整张卡",
+            "value": ""
+          }
+        ],
+        "default": "/persona/assistant_name",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "narrator",
+              "path": "/context/sources/2/selector"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "运行.执笔可见消息数",
+        "name": "执笔可见的最近消息条数",
+        "type": "number",
+        "group": "运行",
+        "description": "请填整数，一问一答算两条。绑定执笔第 2 条上下文来源（recent_history）的 limit。",
+        "valueSchema": {
+          "type": "number",
+          "minimum": 4,
+          "maximum": 40
+        },
+        "default": 12,
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "narrator",
+              "path": "/context/sources/1/limit"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "运行.编年间隔",
+        "name": "编年间隔（轮）",
+        "type": "number",
+        "group": "运行",
+        "description": "请填整数。编年只看最近 6 条消息，间隔超过 3 会漏看。绑定编年第 1 条触发器的 every。",
+        "valueSchema": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "default": 2,
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "chronicler",
+              "path": "/triggers/0/every"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "运行.世事失败时",
+        "name": "世事失败时",
+        "type": "choice",
+        "group": "运行",
+        "description": "停在选择前：执笔写到选择发生之前就停住。整轮失败：让用户重试。",
+        "options": [
+          {
+            "label": "停在选择前",
+            "value": "return_error"
+          },
+          {
+            "label": "整轮失败",
+            "value": "stop"
+          }
+        ],
+        "default": "return_error",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "narrator",
+              "path": "/communication/handoffs/0/onFailure"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "运行.执笔模型",
+        "name": "执笔模型",
+        "type": "model",
+        "group": "运行",
+        "description": "最强的中文文学模型。inherit = 本轮冻结的聊天模型。",
+        "default": "inherit",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "narrator",
+              "path": "/modelRef"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "运行.世事模型",
+        "name": "世事模型",
+        "type": "model",
+        "group": "运行",
+        "description": "推理强、守规矩。inherit = 本轮冻结的聊天模型。",
+        "default": "inherit",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "world",
+              "path": "/modelRef"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "运行.调卷模型",
+        "name": "调卷模型",
+        "type": "model",
+        "group": "运行",
+        "description": "快、结构化输出可靠，可以用便宜的模型。inherit = 本轮冻结的聊天模型。",
+        "default": "inherit",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "clerk",
+              "path": "/modelRef"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "运行.推演模型",
+        "name": "推演模型",
+        "type": "model",
+        "group": "运行",
+        "description": "理解人物强。推演一、推演二共用。inherit = 本轮冻结的聊天模型。",
+        "default": "inherit",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "sim-1",
+              "path": "/modelRef"
+            },
+            "mode": "set"
+          },
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "sim-2",
+              "path": "/modelRef"
+            },
+            "mode": "set"
+          }
+        ]
+      },
+      {
+        "id": "运行.编年模型",
+        "name": "编年模型",
+        "type": "model",
+        "group": "运行",
+        "description": "结构化输出可靠，可以用便宜的模型。inherit = 本轮冻结的聊天模型。",
+        "default": "inherit",
+        "bindings": [
+          {
+            "target": {
+              "kind": "agent",
+              "agentId": "chronicler",
+              "path": "/modelRef"
+            },
+            "mode": "set"
+          }
+        ]
+      }
+    ],
+    "memory": {
+      "collections": [
+        {
+          "id": "events",
+          "name": "事件",
+          "namespace": "shared",
+          "path": "/canon/events",
+          "description": "客观事件，只追加；带来源、知情人、呈现状态。id 和创建时间由插件分配。"
+        },
+        {
+          "id": "hidden",
+          "name": "暗线",
+          "namespace": "shared",
+          "path": "/canon/hidden",
+          "description": "尚未呈现的正典：知情人、表面痕迹、可能被发现的途径。"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "format": "rp-team-trial-scenario",
+  "version": 1,
+  "scenario": {
+    "name": "处境生活感 T2b 同一句话·摩擦前情：你今天回来得挺晚（3 轮）",
+    "steps": [
+      {
+        "id": "t2b-1-morning-bowls",
+        "inputText": "（早上，我把你昨晚泡在水池里的碗推到一边）说过多少次了，用完的碗别泡着过夜。",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      },
+      {
+        "id": "t2-2-late-line",
+        "inputText": "（晚上十点多，门锁响了。我从沙发上坐起来，电视还开着）你今天回来得挺晚。",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      },
+      {
+        "id": "t2-3-soup",
+        "inputText": "汤还在锅里温着，要不要喝一点？",
+        "assertions": [
+          {
+            "type": "single_output"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "acting_on"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "residue"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/scene/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "/style/"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "hypothes"
+          },
+          {
+            "type": "body_not_contains",
+            "text": "physical_energy"
+          }
+        ]
+      }
+    ]
+  }
+}
