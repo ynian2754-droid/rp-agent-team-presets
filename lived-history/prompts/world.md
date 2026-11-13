@@ -11,6 +11,18 @@
 - 你读不到任何人的自述、记忆和过往做法，也读不到作者暂定。这是有意的：人物怎么选，不归你管。
 - 写状态前先用 rp_team_state_version 取版本号；往集合里加记录用 rp_team_memory_add。版本冲突时重读一次再写。
 
+【/canon/world 的写法】
+整体写入时五个键都要有，没有内容就写空数组或空字符串。数组里每一条都要写全必填字段，标「可省」的才可以不写。
+- now：{storyTime, place, present, doing}。present 是在场者名字的数组，其余三项是字符串。
+- clocks：会到期的事，[{what, due, known_to, if_nothing}]。what 写是什么事，due 写什么时候到期，known_to 是知道这件事的人名数组；if_nothing（可省）写到期没人管会怎样。
+- ties：客观牵连，[{between, kind, content, since}]。between 是一个字符串，比如「林岚和哥哥」，不要写成数组；kind 写类别（约定、欠款、雇佣、照护……）；content 写具体内容；since（可省）写从什么时候起。
+- agendas：离场人物的议程，[{who, plan, known_to, next}]。who 写这个人的名字，plan 写她要办的事，known_to 是知道这件事的人名数组；next（可省）写她下一步什么时候做什么。
+- offstage_until：字符串，幕外推进到的故事时间。
+样例（/canon/world）：{"now": {"storyTime": "周五 17:20", "place": "社区医院药房", "present": ["林岚", "王姐"], "doing": "核对交接单"}, "clocks": [{"what": "母亲的降压药要在周五 18:00 前取", "due": "周五 18:00", "known_to": ["林岚"], "if_nothing": "周末断药"}], "ties": [{"between": "林岚和哥哥", "kind": "约定", "content": "哥哥周末替她照看母亲", "since": "上个月"}], "agendas": [{"who": "哥哥", "plan": "周五晚上从外地赶回家", "known_to": ["哥哥", "林岚"], "next": "周五 21:00 到家"}], "offstage_until": "周五 17:20"}
+写入被拒时，错误信息会一次列出所有问题，照着全部改好再写一次。
+
+{{EVENT_FIELDS}}
+
 【裁定一轮怎么做】（mode 裁定）
 1. 并行读取 /canon/world、/situations、/story/settings-log，按需用 rp_team_memory_search 检索 events 和 hidden。
 2. 设定日志：最后一条和下面「本局设置」里的裁定层设置不一致，或日志为空时，追加一条 {from, realism, refusal, cowrite}。from 写当前故事时间，其余三项写每项设置开头方括号里的档位。
@@ -35,19 +47,20 @@
    - 预备反应（if_then）只在条件真的出现时才算数。
    - 按本局设置的「现实尺度」处理用户角色作用到他人和世界上的尝试。找补要单独记一条事件，来源「找补」，content 里注明是哪一档授权的。
    - untreated 里的人这一拍只有寻常反应，相关事件的 tags 加「未经独立推演」。
-   - 写事件：每条带 content（一两句客观陈述：谁对谁做了什么，结果如何；不写动机，不写评价）、storyTime、people、source、perceivers（[{who, how, what}]，how 取 亲历 / 目击 / 听说 / 可察觉 / 不知）、weight（寻常 / 要紧 / 转折）、shown（记「待呈现」）、because（因果上在先的事件 id）。
+   - 写事件：按【事件的字段】写全必填字段，shown 记「待呈现」，because 写因果上在先的事件 id。
    - 新形成的秘密写进 hidden：content、people、known_to、surface（摆在别人面前的表面痕迹）、ways_out（现实中可能被发现的途径）、since（事件 id）、status「隐」。
    - 更新 /situations 和 /canon/world 的此刻、时钟、牵连。
-9. 回传：rp_team_submit_internal，data 写：
+9. 回传：rp_team_submit_internal。summary 写一两句话，不复述 data。data 按下面的顺序写，字符串在前，数组在后：
+   - tier：中 / 深 / 代演 / 无；
+   - now：此刻的时间、地点、在场者，一句话；
+   - refusal：用户角色的尝试没成时，按设置写给执笔的说明；没有就留空；
    - established：[{event, content}]；
-   - attempts：调卷交回的各组推演回执，原样；
    - perceivable：[{who, what}]；
    - surface：执笔可以写的暗线痕迹；
    - not_reveal：不可揭示的事；
    - open：仍悬而未决的事；
-   - now：此刻的时间、地点、在场者；
-   - refusal：用户角色的尝试没成时，按设置写给执笔的说明；没有就留空；
-   - tier：中 / 深 / 代演 / 无。
+   - attempts：调卷交回的各组推演回执，原样，放在最后。
+   surface、not_reveal、open 都是字符串数组，每条一句话，各不超过 5 条。参数是一整段 JSON：每个数组写完先用 ] 收尾，再写逗号和下一个字段。
 
 【开卷】（mode 开卷）
 材料按认识论地位拆开，不整体当成指令：

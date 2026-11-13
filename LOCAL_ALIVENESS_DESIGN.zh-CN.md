@@ -479,7 +479,7 @@ Actor 会告诉你它想表达什么（intent）和卡在哪里（conflict）。
 | context.sources | `{"type":"character_card","selector":"/persona/assistant_name"}`；`{"type":"agent_messages","agentIds":["perception","belief","association","inhibition"]}`；状态读权限：`/character/self_known`（全文；**不给 `/character/inner_directives`**，§4.0） |
 | **不给** | current_input、recent_history、full_history、worldbook、hidden_state、scene_state、long_memory、drafts |
 | outputAuthority | `{"internal": true, "draft": false, "state": true, "user": true}` |
-| parameters | `{"maxTokens": 1500}`（由参数 `actor_max_tokens` 设定） |
+| parameters | `{}`。预设 0.1.1 起不设输出上限：推理模型的上限连思考一起算，原来的 1500 可能在发布正文之前就用完 |
 | 模型 | 默认 `"inherit"`，即本轮冻结的聊天模型；是否开 reasoning 由试演决定 |
 
 statePermissions：
@@ -879,7 +879,6 @@ S = shared，W = world。“写入者”指唯一的主要写入者 **[Preset]**
 | microstate_interval | 微状态更新间隔（轮） | number | 3 | valueSchema `{"type":"number","minimum":1,"maximum":12}` | `{kind:"agent",agentId:"microstate",path:"/triggers/0/every"}` mode `set` |
 | actor_model | 正文模型 | model | `"inherit"` | — | `{kind:"agent",agentId:"actor",path:"/modelRef"}` mode `set` |
 | background_model | 后台模型 | model | `"inherit"` | — | mode `set`，5 个目标：perception、belief、microstate、association、inhibition 的 `/modelRef` |
-| actor_max_tokens | 正文输出上限 | number | 1500 | valueSchema `{"type":"number","minimum":200,"maximum":8000}` | `{kind:"agent",agentId:"actor",path:"/parameters/maxTokens"}` mode `set` |
 | turn_request_cap | 单轮请求上限 | number | 24 | valueSchema `{"type":"number","minimum":8,"maximum":60}` | `{kind:"team",path:"/execution/budget/maxRequests"}` mode `set`。D11 修正后最坏计划内轮次约 26 次请求，若试演中频繁触顶调到 28（§9.5） |
 
 说明：
@@ -1043,9 +1042,9 @@ perception 3 + belief 4（await）+ microstate 3 + association 应答 3 + 整理
 - 只有一个成员 `actor`。保留同一稳定 ID、`user:true`、`output.agentId: "actor"`。
 - `systemPrompt`：沿用 A 的 Actor 中关于角色身份、“可以停顿或只回应一部分”“不必推进剧情”“不报告心理”的部分，删掉所有关于后台过程、handoff 和状态路径的句子。**不要**把 A 的后台规则改写成长篇心理分析塞给 B。
 - context.sources：`current_input`、`{"type":"recent_history","limit":12}`、`character_card`（selector 与 A 相同）。
-- capabilities 与 A 相同（全部关闭）；`parameters.maxTokens` 用同一参数值；modelRef 与 A 的 actor 相同。
+- capabilities 与 A 相同（全部关闭）；`parameters` 与 A 相同（不设 maxTokens）；modelRef 与 A 的 actor 相同。
 - statePermissions：`[]`；`outputAuthority`：`{"internal": false, "draft": false, "state": false, "user": true}`。
-- `state.definitions`：**原样复制 A 的全部定义，但不授权给任何人**，只为让共同的 `initialState` 和 `state_equals` 在 B 中也有效。B 不声明 memory 和 authorParameters（除 actor_model、actor_max_tokens 外）。
+- `state.definitions`：**原样复制 A 的全部定义，但不授权给任何人**，只为让共同的 `initialState` 和 `state_equals` 在 B 中也有效。B 不声明 memory 和 authorParameters（除 actor_model 外）。
 - execution：`{"concurrency": 1, "maxActivations": 2, "maxPerAgent": 1, "maxDepth": 1, "budget": {"maxRequests": 24, "maxElapsedMs": 240000}}`。
 
 ### 12.2 实验组

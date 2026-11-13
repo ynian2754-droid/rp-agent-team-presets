@@ -82,13 +82,13 @@ await check('作者参数默认值可解析，提示词无残留标记', () => {
 })
 await check('参数覆盖值落到正确字段', () => {
   const r = resolveAuthorParameters(config, {
-    performer_history: 20, keeper_interval: 3, performer_max_tokens: 1200, turn_request_cap: 24,
+    performer_history: 20, keeper_interval: 3, turn_request_cap: 24,
     backstage_model: { provider: 'p', model: 'm' }, voice_note: '第一人称，短句。'
   }).config
   const performer = r.agents.find(a => a.id === 'performer')
   assert.equal(performer.context.sources[1].type, 'recent_history')
   assert.equal(performer.context.sources[1].limit, 20)
-  assert.equal(performer.parameters.maxTokens, 1200)
+  assert.equal(performer.parameters.maxTokens, undefined, 'the publisher has no output cap: with reasoning models the cap also counts thinking')
   assert.ok(performer.systemPrompt.includes('文风与篇幅：第一人称，短句。'))
   assert.equal(r.agents.find(a => a.id === 'keeper').triggers[0].every, 3)
   assert.equal(r.execution.budget.maxRequests, 24)

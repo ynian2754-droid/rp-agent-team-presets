@@ -13,11 +13,13 @@ const load = rel => import(pathToFileURL(join(pluginRoot, rel)).href)
 const { parsePreset, exportPreset } = await load('src/shared/schema.mjs')
 const { resolveAuthorParameters } = await load('src/shared/author-parameters.mjs')
 const { describeStateToolAccess } = await load('src/host/state-store.mjs')
+const { validateValueSchema } = await load('src/shared/value-schema.mjs')
 
-const VERSION = '0.3.0'
+const VERSION = '0.3.1'
 const S = 'shared'
 const read = name => readFileSync(join(here, 'prompts', `${name}.md`), 'utf8').replace(/\r\n/g, '\n')
 const invariants = read('_invariants').trim()
+const eventFields = read('_event-fields').trim()
 
 function prompt(name, variant) {
   const keep = variant === 'plus' ? 'plus' : 'std'
@@ -26,6 +28,7 @@ function prompt(name, variant) {
     .replace(new RegExp(`\\[\\[${drop}\\]\\][\\s\\S]*?\\[\\[/${drop}\\]\\]\\n?`, 'g'), '')
     .replace(new RegExp(`\\[\\[/?${keep}\\]\\]\\n?`, 'g'), '')
     .replace('{{INVARIANTS}}', invariants)
+    .replace('{{EVENT_FIELDS}}', eventFields)
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
@@ -50,63 +53,87 @@ const beat = obj({
   departs: str, self_explanation: str, wrote: strs
 }, ['who', 'says', 'does', 'grounds', 'wrote'])
 
-const handoffs = {
-  askWorld: {
-    id: 'ask-world', to: 'world', mode: 'await', timeoutMs: 300000, onFailure: 'return_error',
-    requestSchema: envelope({ mode: { type: 'string', enum: ['裁定', '开卷', '补充', '修订'] }, input: str, question: str, elapsed: str }, ['mode', 'input', 'question']),
-    requestSelectors: ['/summary', '/data'],
-    responseSchema: responseOf({
-      established: arr(obj({ event: str, content: str }, ['content'])), attempts: anyArr,
-      perceivable: arr(obj({ who: str, what: str }, ['who', 'what'])), surface: strs, not_reveal: strs, open: strs,
-      now: str, refusal: str, tier: { type: 'string', enum: ['中', '深', '代演', '无'] }
-    }, ['established', 'attempts', 'now', 'tier']),
-    responseSelectors: ['/data']
-  },
-  tickWorld: {
-    id: 'tick-world', to: 'world', mode: 'notify', timeoutMs: 240000, onFailure: 'return_error',
-    requestSchema: envelope({ from: str, to: str }, ['to']), requestSelectors: ['/summary', '/data']
-  },
-  askFile: {
-    id: 'ask-file', to: 'clerk', mode: 'await', timeoutMs: 240000, onFailure: 'return_error',
-    requestSchema: envelope({
-      mode: { type: 'string', enum: ['推演', '建档', '幕外'] }, player: str, present: strs,
-      stimulus: arr(obj({ event: str, content: str }, ['content'])), midbeat: arr(obj({ content: str, when: str }, ['content'])),
-      first: str, material: arr(obj({ who: str, text: str }, ['who', 'text'])), notes: strs
-    }, ['mode', 'player', 'present', 'stimulus']),
-    requestSelectors: ['/summary', '/data'],
-    responseSchema: responseOf({
-      groups: arr(obj({ slot: num, people: strs, beats: arr(beat) }, ['slot', 'people', 'beats'])),
-      relays: num, untreated: strs, check: str
-    }, ['groups', 'untreated']),
-    responseSelectors: ['/data']
-  },
-  askSim: slot => ({
-    id: `ask-sim-${slot}`, to: `sim-${slot}`, mode: 'await', timeoutMs: 150000, onFailure: 'return_error',
-    requestSchema: envelope({
-      seq: num, slot: { type: 'number', enum: [1, 2] }, mode: { type: 'string', enum: ['推演', '建档', '幕外', '接力'] },
-      player: str, group: strs, now: str, stimulus: anyArr, relay: anyArr, people: { type: 'object' }, facing: str, check_issues: anyArr
-    }, ['seq', 'slot', 'mode', 'player', 'group', 'now', 'stimulus', 'people', 'facing']),
-    requestSelectors: ['/summary', '/data'],
-    responseSchema: responseOf({ beats: arr(beat) }, ['beats']),
-    responseSelectors: ['/data']
-  }),
-  checkSim: {
-    id: 'check-sim', to: 'checker', mode: 'await', timeoutMs: 120000, onFailure: 'return_error',
-    requestSchema: envelope({ packs: anyArr, beats: anyArr }, ['packs', 'beats']), requestSelectors: ['/summary', '/data'],
-    responseSchema: responseOf({
-      pass: bool,
-      issues: arr(obj({ who: str, kind: { type: 'string', enum: ['依据不在材料包', '背离缺依据', '读心', '替用户角色写', '解释多于动作'] }, note: str }, ['kind', 'note']))
-    }, ['pass', 'issues']),
-    responseSelectors: ['/data']
-  },
-  checkDraft: {
-    id: 'check-draft', to: 'checker', mode: 'await', timeoutMs: 120000, onFailure: 'return_error',
-    requestSchema: envelope({ draft: str, world_return: { type: 'object' } }, ['draft', 'world_return']), requestSelectors: ['/summary', '/data'],
-    responseSchema: responseOf({
-      pass: bool,
-      issues: arr(obj({ kind: { type: 'string', enum: ['未确立的事', '知情越界', '暗线越过表面', '替用户角色写', '过度解释', '不合设置'] }, quote: str, note: str }, ['kind', 'note']))
-    }, ['pass', 'issues']),
-    responseSelectors: ['/data']
+// ---------- time and request ceilings ----------
+// An await timeout is a ceiling that must cover everything its target waits for in turn, or the outer timer
+// cancels inner work still within its own limit (0.3.0 gave 世事 240 s for 调卷, whose two 推演 alone could take
+// 300 s). Derived from the inside out for the largest 接力次数. Ceilings, not expected durations.
+const MAX_RELAYS = 2
+const OWN_SECONDS = { narrator: 180, world: 180, clerk: 90 }
+const SIM_SECONDS = 180
+const CHECK_SECONDS = 120
+function ceilings(plus) {
+  const askFile = OWN_SECONDS.clerk + (2 + MAX_RELAYS) * SIM_SECONDS + (plus ? CHECK_SECONDS : 0)
+  const askWorld = OWN_SECONDS.world + askFile
+  return { askSim: SIM_SECONDS, check: CHECK_SECONDS, askFile, askWorld, elapsed: OWN_SECONDS.narrator + askWorld + (plus ? CHECK_SECONDS : 0) }
+}
+// Every tool round trip is one model request, so count requests per activation, not members (0.3.0 counted
+// about 15 for a deep beat; 世事 alone made 28 in the first trial). Upper estimates plus a margin for retries.
+const CALLS = { narrator: 6, world: 12, clerk: 8, sim: 4, checker: 2, chronicler: 8, margin: 10 }
+function requestBudget(plus) {
+  return CALLS.narrator + CALLS.world + CALLS.clerk + (2 + MAX_RELAYS) * CALLS.sim + CALLS.chronicler + CALLS.margin
+    + (plus ? 2 * CALLS.checker : 0)
+}
+
+function handoffsFor(plus) {
+  const T = ceilings(plus)
+  return {
+    askWorld: {
+      id: 'ask-world', to: 'world', mode: 'await', timeoutMs: T.askWorld * 1000, onFailure: 'return_error',
+      requestSchema: envelope({ mode: { type: 'string', enum: ['裁定', '开卷', '补充', '修订'] }, input: str, question: str, elapsed: str }, ['mode', 'input', 'question']),
+      requestSelectors: ['/summary', '/data'],
+      responseSchema: responseOf({
+        established: arr(obj({ event: str, content: str }, ['content'])), attempts: anyArr,
+        perceivable: arr(obj({ who: str, what: str }, ['who', 'what'])), surface: strs, not_reveal: strs, open: strs,
+        now: str, refusal: str, tier: { type: 'string', enum: ['中', '深', '代演', '无'] }
+      }, ['established', 'attempts', 'now', 'tier']),
+      responseSelectors: ['/data']
+    },
+    tickWorld: {
+      id: 'tick-world', to: 'world', mode: 'notify', timeoutMs: 240000, onFailure: 'return_error',
+      requestSchema: envelope({ from: str, to: str }, ['to']), requestSelectors: ['/summary', '/data']
+    },
+    askFile: {
+      id: 'ask-file', to: 'clerk', mode: 'await', timeoutMs: T.askFile * 1000, onFailure: 'return_error',
+      requestSchema: envelope({
+        mode: { type: 'string', enum: ['推演', '建档', '幕外'] }, player: str, present: strs,
+        stimulus: arr(obj({ event: str, content: str }, ['content'])), midbeat: arr(obj({ content: str, when: str }, ['content'])),
+        first: str, material: arr(obj({ who: str, text: str }, ['who', 'text'])), notes: strs
+      }, ['mode', 'player', 'present', 'stimulus']),
+      requestSelectors: ['/summary', '/data'],
+      responseSchema: responseOf({
+        groups: arr(obj({ slot: num, people: strs, beats: arr(beat) }, ['slot', 'people', 'beats'])),
+        relays: num, untreated: strs, check: str
+      }, ['groups', 'untreated']),
+      responseSelectors: ['/data']
+    },
+    askSim: slot => ({
+      id: `ask-sim-${slot}`, to: `sim-${slot}`, mode: 'await', timeoutMs: T.askSim * 1000, onFailure: 'return_error',
+      requestSchema: envelope({
+        seq: num, slot: { type: 'number', enum: [1, 2] }, mode: { type: 'string', enum: ['推演', '建档', '幕外', '接力'] },
+        player: str, group: strs, now: str, stimulus: anyArr, relay: anyArr, people: { type: 'object' }, facing: str, check_issues: anyArr
+      }, ['seq', 'slot', 'mode', 'player', 'group', 'now', 'stimulus', 'people', 'facing']),
+      requestSelectors: ['/summary', '/data'],
+      responseSchema: responseOf({ beats: arr(beat) }, ['beats']),
+      responseSelectors: ['/data']
+    }),
+    checkSim: {
+      id: 'check-sim', to: 'checker', mode: 'await', timeoutMs: T.check * 1000, onFailure: 'return_error',
+      requestSchema: envelope({ packs: anyArr, beats: anyArr }, ['packs', 'beats']), requestSelectors: ['/summary', '/data'],
+      responseSchema: responseOf({
+        pass: bool,
+        issues: arr(obj({ who: str, kind: { type: 'string', enum: ['依据不在材料包', '背离缺依据', '读心', '替用户角色写', '解释多于动作'] }, note: str }, ['kind', 'note']))
+      }, ['pass', 'issues']),
+      responseSelectors: ['/data']
+    },
+    checkDraft: {
+      id: 'check-draft', to: 'checker', mode: 'await', timeoutMs: T.check * 1000, onFailure: 'return_error',
+      requestSchema: envelope({ draft: str, world_return: { type: 'object' } }, ['draft', 'world_return']), requestSelectors: ['/summary', '/data'],
+      responseSchema: responseOf({
+        pass: bool,
+        issues: arr(obj({ kind: { type: 'string', enum: ['未确立的事', '知情越界', '暗线越过表面', '替用户角色写', '过度解释', '不合设置'] }, quote: str, note: str }, ['kind', 'note']))
+      }, ['pass', 'issues']),
+      responseSelectors: ['/data']
+    }
   }
 }
 
@@ -187,12 +214,14 @@ const agent = fields => ({
 
 function agents(variant) {
   const plus = variant === 'plus'
+  const handoffs = handoffsFor(plus)
   const list = [
     agent({
       id: 'narrator', name: '执笔',
       description: '唯一写正文、唯一发布的成员。每轮运行：读记录、分档；有后果的事交给世事裁定，再按回传写正文。',
       systemPrompt: prompt('narrator', variant),
-      parameters: { temperature: 0.8, maxTokens: 3000 },
+      // No maxTokens: on reasoning models the cap also counts thinking, and 3000 was used up before any prose.
+      parameters: { temperature: 0.8 },
       triggers: [{ type: 'always' }],
       context: { sources: [{ type: 'current_input' }, { type: 'recent_history', limit: 12 }, ...names] },
       communication: {
@@ -316,7 +345,7 @@ function settings(variant) {
       { tier: '短', label: '短：150–300 字', text: '每轮正文约 150–300 字。写不满就写短，停在该停的地方。' },
       { tier: '中', label: '中：300–800 字', text: '每轮正文约 300–800 字。写不满就写短，停在该停的地方。' },
       { tier: '长', label: '长：800–1500 字', text: '每轮正文约 800–1500 字。写不满就写短，不用新事件凑字数。' }
-    ], '改篇幅时，同时调「正文输出上限」，设为目标字数的两到三倍。'),
+    ]),
     choice('呈现.镜头', '镜头', ['narrator', ...C], '跟随', [
       { tier: '跟随', text: '只呈现用户角色此刻能看到、听到、感知到的。幕外的事只以痕迹出现在用户角色面前，不插入幕外镜头。' },
       { tier: '可切', text: '以用户角色的感知为主；可以插入短的幕外镜头，前后用一行「◇」隔开。幕外镜头里只写世事已裁定的事。' }
@@ -354,12 +383,6 @@ function settings(variant) {
       description: deliverNote(['clerk']) + '两组都推演过之后，还允许来回几次。每次约多等 15～30 秒。',
       options: [{ label: '0：不接力', value: 0, text: '0' }, { label: '1 次', value: 1, text: '1' }, { label: '2 次', value: 2, text: '2' }],
       default: 1, bindings: textBind(['clerk'])
-    },
-    {
-      id: '运行.正文输出上限', name: '正文输出上限', group: '运行', type: 'number',
-      description: '执笔每次请求的 maxTokens。只当保险，不用它控制篇幅（会在句子中间截断）。请填整数，约为目标字数的两到三倍。',
-      valueSchema: { type: 'number', minimum: 500, maximum: 16000 }, default: 3000,
-      bindings: [setBind('narrator', '/parameters/maxTokens')]
     },
     {
       id: '运行.执笔读卡', name: '执笔怎么读角色卡', group: '运行', type: 'choice',
@@ -415,20 +438,21 @@ function build(variant) {
     metadata: {
       author: 'RP Team',
       description: '文学现实主义 RP 预设：人物只作为记录存在；在场的人按知情范围分组，由不绑定人物的推演成员只看材料包推演；世事唯一裁定事实，执笔唯一发布。说明见 LIVED_HISTORY.zh-CN.md，设计见 LIVED_HISTORY_DESIGN.zh-CN.md。',
-      targets: 'ElecKoi v0.2.20 + RP Agent Team 0.7.0 以上（schemaVersion 2）',
+      // exportPreset derives dependencies.minimumPluginVersion (0.7.0) from features; the three-hop handoff chain
+      // under maxDepth 3 also needs the 0.7.3 depth fix, which only this note can state.
+      targets: 'ElecKoi v0.2.20 / v0.2.21 + RP Agent Team 0.7.3 以上（schemaVersion 2）',
       variant: plus ? '增强版：加核验' : '标准版',
       settingsRegistry: params.map(p => ({
         id: p.id, layer: p.id.split('.')[0],
         deliver: [...new Set(p.bindings.map(b => AGENT_NAMES[b.target.agentId]))],
-        ...(p.id === '呈现.心理' ? { requires: '「较多」要求 呈现.镜头 为「可切」' } : {}),
-        ...(p.id === '呈现.字数' ? { pairsWith: '运行.正文输出上限' } : {})
+        ...(p.id === '呈现.心理' ? { requires: '「较多」要求 呈现.镜头 为「可切」' } : {})
       }))
     },
     agents: agents(variant),
     state: { definitions },
     execution: {
       concurrency: 3, maxActivations: plus ? 14 : 12, maxPerAgent: 3, maxDepth: 3,
-      budget: { maxRequests: plus ? 44 : 36, maxElapsedMs: plus ? 480000 : 420000 }
+      budget: { maxRequests: requestBudget(plus), maxElapsedMs: ceilings(plus).elapsed * 1000 }
     },
     output: { agentId: 'narrator' },
     authorParameters: params,
@@ -447,6 +471,18 @@ function build(variant) {
 }
 
 // ---------- structural checks ----------
+const META_FIELDS = new Set(['id', 'createdAt', 'updatedAt', 'active']) // filled in by the memory tools
+// Fields of a schema that its example value never shows; an array example is the union of its items.
+function unseenFields(schema, examples, path, out = []) {
+  if (schema.items) unseenFields(schema.items, examples.flatMap(value => Array.isArray(value) ? value : []), `${path}[]`, out)
+  const required = new Set(schema.required ?? [])
+  for (const [key, child] of Object.entries(schema.properties ?? {})) {
+    const seen = examples.filter(value => value && typeof value === 'object' && !Array.isArray(value) && Object.hasOwn(value, key)).map(value => value[key])
+    if (!seen.length && !META_FIELDS.has(key)) out.push({ path: `${path}/${key}`, key, required: required.has(key), enums: child.enum?.filter(value => typeof value === 'string') })
+    unseenFields(child, seen, `${path}/${key}`, out)
+  }
+  return out
+}
 const PARAM_TOKEN = /\{\{param:([^}]+)\}\}/g
 const SIMULATION_FORBIDDEN_LAYERS = ['呈现', '裁定']
 function check(variant, parsed) {
@@ -493,6 +529,52 @@ function check(variant, parsed) {
   }
   assert.deepEqual(parsed.agents.filter(a => a.outputAuthority.user).map(a => a.id), ['narrator'])
   notes.push('推演只有 agent_messages；唯一发布者是执笔')
+  // A member cannot learn a required field it must write when its prompt never names it and the path's default
+  // shows no example (an empty array). That is how 世事 failed ten writes in the first trial; check every member.
+  for (const a of resolved.agents) {
+    if (!a.outputAuthority.state) continue
+    for (const row of describeStateToolAccess(a, resolved.state.definitions)) {
+      const def = row.write && resolved.state.definitions.find(d => d.namespace === row.namespace && d.path === row.path)
+      if (!def?.valueSchema) continue
+      for (const field of unseenFields(def.valueSchema, [def.default], '')) {
+        if (field.required) assert.ok(a.systemPrompt.includes(field.key), `${a.id} writes ${def.path} but its prompt never names required field ${field.path}`)
+        for (const value of field.enums ?? []) assert.ok(a.systemPrompt.includes(value), `${a.id} writes ${def.path} but its prompt never lists ${field.path} value ${value}`)
+      }
+    }
+    // Every sample line in a prompt passes the schema it illustrates.
+    for (const line of a.systemPrompt.split(/\n/u).filter(item => item.startsWith('样例（'))) {
+      const label = line.slice(3, line.indexOf('）'))
+      const schema = label === '事件' ? resolved.state.definitions.find(d => d.path === '/canon/events').valueSchema.items
+        : resolved.state.definitions.find(d => d.path === label)?.valueSchema
+      assert.ok(schema, `${a.id}: sample ${label} names no schema`)
+      assert.deepEqual(validateValueSchema(JSON.parse(line.slice(line.indexOf('：') + 1)), schema), [], `${a.id}: sample ${label}`)
+    }
+  }
+  notes.push('每个成员写的带格式路径：必填字段和取值都在提示词里，样例通过校验')
+  // An await timeout must exceed everything its target awaits in turn, and the run budget must cover the output
+  // agent's own awaits; otherwise an outer timer cancels inner work still within its own limit.
+  const awaits = a => (a.communication.handoffs ?? []).filter(h => h.mode === 'await')
+  for (const a of resolved.agents) {
+    for (const h of awaits(a)) {
+      const inner = awaits(resolved.agents.find(x => x.id === h.to)).reduce((sum, x) => sum + x.timeoutMs, 0)
+      assert.ok(h.timeoutMs > inner, `${a.id} -> ${h.id} timeout ${h.timeoutMs} does not cover the ${inner} ms its target awaits`)
+    }
+  }
+  const outputAwaits = awaits(resolved.agents.find(a => a.id === resolved.output.agentId)).reduce((sum, h) => sum + h.timeoutMs, 0)
+  assert.ok(resolved.execution.budget.maxElapsedMs > outputAwaits, 'run elapsed budget covers the output agent awaits')
+  const askFile = awaits(resolved.agents.find(a => a.id === 'world'))[0].timeoutMs
+  notes.push(`超时由内向外：调卷 ${askFile / 1000}s ⊂ 世事 ${awaits(resolved.agents.find(a => a.id === 'narrator'))[0].timeoutMs / 1000}s ⊂ 整轮 ${resolved.execution.budget.maxElapsedMs / 1000}s；请求上限 ${resolved.execution.budget.maxRequests}`)
+  // The longest request chain must fit maxDepth (each hop adds one level from plugin 0.7.3 on).
+  const byId = new Map(parsed.agents.map(a => [a.id, a]))
+  const longest = (id, seen = new Set()) => {
+    assert.ok(!seen.has(id), `request cycle through ${id}`)
+    const next = byId.get(id).communication.requestTo
+    return next.length ? 1 + Math.max(...next.map(to => longest(to, new Set([...seen, id])))) : 0
+  }
+  const hops = Math.max(...parsed.agents.filter(a => a.triggers.some(t => t.type !== 'requested_by_agent')).map(a => longest(a.id)))
+  assert.ok(hops <= parsed.execution.maxDepth, `request chain of ${hops} hops exceeds maxDepth ${parsed.execution.maxDepth}`)
+  assert.equal(byId.get('narrator').parameters.maxTokens, undefined, 'narrator output is not capped')
+  notes.push(`最长交接链 ${hops} 跳，maxDepth ${parsed.execution.maxDepth}；执笔不设输出上限`)
   return notes
 }
 

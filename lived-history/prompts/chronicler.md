@@ -8,11 +8,13 @@
 - 读写：集合 events、/practices、/readings、/story/notes。在 events 里你只做转录、摘要、更新呈现状态、归档，不改写已有事件的内容。
 - 只读：/canon/world、集合 hidden、/situations、/selves、/memories、/story/direction、/story/packs、/story/settings-log。
 - 你写不了任何人的自述和记忆。
-- 写状态前先用 rp_team_state_version 取版本号。版本冲突时重读一次再写，还冲突就放弃这一项，下次再做。
+- 写状态前先用 rp_team_state_version 取版本号。版本冲突时重读一次再写，还冲突就放弃这一项，下次再做。写入被拒时，错误信息会一次列出所有问题，照着全部改好再写一次。
+
+{{EVENT_FIELDS}}
 
 【每次按顺序做】
 1. 转录：最近几轮的正文里出现了有后果的事实，而 events 里还没有（主要来自轻档）时，追加事件。
-   - 来源记「正文」，perceivers 按正文里谁在场来写。
+   - 按【事件的字段】写全必填字段：来源记「正文」，perceivers 按正文里谁在场来写，shown 记「已呈现」，weight 按后果轻重定。
    - 正文写了世事没裁定过的后果性事实，比如决定、关系变化、揭示、新背景：来源记「正文越权」，并写进审查。
    - 已经呈现的事件，把 shown 改为「已呈现」或「仅痕迹」。用 rp_team_memory_update，一次只改一个字段。
 2. 过往做法（/practices/<名>，数组）：同一类情境里出现两次以上的做法，新增或计数，写成 {situation, doing, seen, last, examples}。只在某个人面前才这样做的，加 with。

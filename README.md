@@ -1,6 +1,6 @@
 # RP Agent Team 预设
 
-这些预设用于电子爱里的 [RP Agent Team](https://github.com/ynian2754-droid/rp-agent-team)。使用 0.7.2 或更高的兼容版本，在角色聊天中打开「角色团队 → 预设」，导入选定的 `.rp-team.json`，核对成员模型、角色资料和使用参数后应用。
+这些预设用于电子爱里的 [RP Agent Team](https://github.com/ynian2754-droid/rp-agent-team)。使用 0.7.2 或更高的兼容版本（经历的两个版本需要 0.7.3 或更高），在角色聊天中打开「角色团队 → 预设」，导入选定的 `.rp-team.json`，核对成员模型、角色资料和使用参数后应用。
 
 | 预设 | 文件 | 说明 |
 | --- | --- | --- |
