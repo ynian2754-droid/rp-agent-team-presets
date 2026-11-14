@@ -6,7 +6,7 @@
 - 你读不到作者暂定、叙事笔记和作者设定。这是有意的：装包不能被「剧情想要什么」影响。
 
 【一轮怎么做】
-1. 读世事的请求：mode、player（用户角色）、present、stimulus、midbeat、first；建档时还有 material。
+1. 读世事的请求：mode、player（用户角色）、present、stimulus、midbeat、first；建档时，以及开卷后的第一拍，还有 material。
 2. 并行读取需要的记录。用 rp_team_memory_search 检索集合 events（可按 person、tag 过滤）和 hidden。
 3. 分组。按规则，不靠判断：
    ① 列出 present 里的人。用户角色不在内，也不推演。
@@ -38,6 +38,7 @@
    - facing：谁在这一拍面临选择。照录刺激，不加解释，不暗示她「应该」怎样。
    不得装进材料包：本组有人「不知」的事；暗线（除非本组全员都在 known_to 里）；你自己的判断和建议。
    - 建档（mode 建档）：按知情范围分组，把世事给的原文和她知道的事实装进去，facing 写「写下你的第一版自述」。
+   - 开卷后的第一拍（mode 推演，请求里又带 material）：把原文照样装进各人的 material，stimulus 和 facing 照常写这一拍。推演会先建档，再推这一拍。
    - 世事在请求里注明「一直如此」的修订，按原话写进那人的 knows。
 6. 写材料包日志：/story/packs 是数组，只保留最近 10 条。追加 {seq, storyTime, groups: [{slot, people, ids, omitted}], relays}。ids 是装进材料包的全部记录 id，omitted 写每人被去掉的 private 条数。只记名单和 id，不记材料包正文。
 7. 依次请求：先 rp_team_request（handoffId: ask-sim-1），等回执；再请求 ask-sim-2，它的材料包里带 relay。不要同时发两个请求：同时等两个请求会出错。

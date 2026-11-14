@@ -15,7 +15,7 @@ const { resolveAuthorParameters } = await load('src/shared/author-parameters.mjs
 const { describeStateToolAccess } = await load('src/host/state-store.mjs')
 const { validateValueSchema } = await load('src/shared/value-schema.mjs')
 
-const VERSION = '0.3.1'
+const VERSION = '0.3.2'
 const S = 'shared'
 const read = name => readFileSync(join(here, 'prompts', `${name}.md`), 'utf8').replace(/\r\n/g, '\n')
 const invariants = read('_invariants').trim()
@@ -58,17 +58,26 @@ const beat = obj({
 // cancels inner work still within its own limit (0.3.0 gave 世事 240 s for 调卷, whose two 推演 alone could take
 // 300 s). Derived from the inside out for the largest 接力次数. Ceilings, not expected durations.
 const MAX_RELAYS = 2
-const OWN_SECONDS = { narrator: 180, world: 180, clerk: 90 }
+// 世事's own time covers an opening round: building the records and then adjudicating the first beat took
+// about 320 s of its own work in the 0.3.1 trial, before counting the wait for 调卷.
+const OWN_SECONDS = { narrator: 180, world: 360, clerk: 90 }
 const SIM_SECONDS = 180
-const CHECK_SECONDS = 120
+// Checking a beat took 47 s in the 0.3.1 trial; checking a full draft first answered after 164 s, so the shared
+// 120 s cut it off and the draft went out unchecked.
+const CHECK_SIM_SECONDS = 120
+const CHECK_DRAFT_SECONDS = 240
 function ceilings(plus) {
-  const askFile = OWN_SECONDS.clerk + (2 + MAX_RELAYS) * SIM_SECONDS + (plus ? CHECK_SECONDS : 0)
+  const askFile = OWN_SECONDS.clerk + (2 + MAX_RELAYS) * SIM_SECONDS + (plus ? CHECK_SIM_SECONDS : 0)
   const askWorld = OWN_SECONDS.world + askFile
-  return { askSim: SIM_SECONDS, check: CHECK_SECONDS, askFile, askWorld, elapsed: OWN_SECONDS.narrator + askWorld + (plus ? CHECK_SECONDS : 0) }
+  return {
+    askSim: SIM_SECONDS, checkSim: CHECK_SIM_SECONDS, checkDraft: CHECK_DRAFT_SECONDS, askFile, askWorld,
+    elapsed: OWN_SECONDS.narrator + askWorld + (plus ? CHECK_DRAFT_SECONDS : 0)
+  }
 }
 // Every tool round trip is one model request, so count requests per activation, not members (0.3.0 counted
-// about 15 for a deep beat; 世事 alone made 28 in the first trial). Upper estimates plus a margin for retries.
-const CALLS = { narrator: 6, world: 12, clerk: 8, sim: 4, checker: 2, chronicler: 8, margin: 10 }
+// about 15 for a deep beat; 世事 alone made 28 in the first trial, 13 for an opening in the 0.3.1 trial, and
+// 核验 4–5 per check). Upper estimates plus a margin for retries.
+const CALLS = { narrator: 6, world: 18, clerk: 8, sim: 4, checker: 5, chronicler: 8, margin: 10 }
 function requestBudget(plus) {
   return CALLS.narrator + CALLS.world + CALLS.clerk + (2 + MAX_RELAYS) * CALLS.sim + CALLS.chronicler + CALLS.margin
     + (plus ? 2 * CALLS.checker : 0)
@@ -117,7 +126,7 @@ function handoffsFor(plus) {
       responseSelectors: ['/data']
     }),
     checkSim: {
-      id: 'check-sim', to: 'checker', mode: 'await', timeoutMs: T.check * 1000, onFailure: 'return_error',
+      id: 'check-sim', to: 'checker', mode: 'await', timeoutMs: T.checkSim * 1000, onFailure: 'return_error',
       requestSchema: envelope({ packs: anyArr, beats: anyArr }, ['packs', 'beats']), requestSelectors: ['/summary', '/data'],
       responseSchema: responseOf({
         pass: bool,
@@ -126,7 +135,7 @@ function handoffsFor(plus) {
       responseSelectors: ['/data']
     },
     checkDraft: {
-      id: 'check-draft', to: 'checker', mode: 'await', timeoutMs: T.check * 1000, onFailure: 'return_error',
+      id: 'check-draft', to: 'checker', mode: 'await', timeoutMs: T.checkDraft * 1000, onFailure: 'return_error',
       requestSchema: envelope({ draft: str, world_return: { type: 'object' } }, ['draft', 'world_return']), requestSelectors: ['/summary', '/data'],
       responseSchema: responseOf({
         pass: bool,
@@ -206,6 +215,7 @@ const names = [
   { type: 'character_card', selector: '/persona/assistant_name' },
   { type: 'character_card', selector: '/persona/user_name' }
 ]
+const OPENING_SHOWN = { type: 'character_card', selector: '/persona/show_opening' }
 const agent = fields => ({
   modelRef: 'inherit', presetId: '', capabilities, compaction: {},
   execution: { after: [], onFailure: 'continue', trustedTools: [] },
@@ -223,7 +233,9 @@ function agents(variant) {
       // No maxTokens: on reasoning models the cap also counts thinking, and 3000 was used up before any prose.
       parameters: { temperature: 0.8 },
       triggers: [{ type: 'always' }],
-      context: { sources: [{ type: 'current_input' }, { type: 'recent_history', limit: 12 }, ...names] },
+      // The card opening is shown in the chat but is not part of its history, so 执笔 reads whether it was shown
+      // to avoid rewriting it on the opening round. Appended last: 运行.执笔读卡 is bound to sources/2.
+      context: { sources: [{ type: 'current_input' }, { type: 'recent_history', limit: 12 }, ...names, OPENING_SHOWN] },
       communication: {
         sendTo: ['world'], receiveFrom: ['world', ...(plus ? ['checker'] : [])],
         requestTo: ['world', ...(plus ? ['checker'] : [])], requestFrom: [],
@@ -529,6 +541,18 @@ function check(variant, parsed) {
   }
   assert.deepEqual(parsed.agents.filter(a => a.outputAuthority.user).map(a => a.id), ['narrator'])
   notes.push('推演只有 agent_messages；唯一发布者是执笔')
+  // The opening round (0.3.1 trial): the card opening was shown in the chat but not in its history, so the team
+  // re-wrote it, padded it with invented errands, and never handled the user's first line.
+  const narrator = parsed.agents.find(a => a.id === 'narrator')
+  const readCard = parsed.authorParameters.find(p => p.id === '运行.执笔读卡')
+  const readCardIndex = Number(readCard.bindings[0].target.path.split('/')[3])
+  assert.equal(narrator.context.sources[readCardIndex].selector, readCard.default, '运行.执笔读卡 still binds the card-name source')
+  assert.ok(narrator.context.sources.some(s => s.type === 'character_card' && s.selector === OPENING_SHOWN.selector), 'narrator reads whether the opening was shown')
+  const worldPrompt = parsed.agents.find(a => a.id === 'world').systemPrompt
+  for (const phrase of ['show_opening', '第 5～9 步', '不新增材料里没有的时钟']) assert.ok(worldPrompt.includes(phrase), `world opening rule missing: ${phrase}`)
+  for (const phrase of ['show_opening', '【开卷那一轮怎么写】']) assert.ok(narrator.systemPrompt.includes(phrase), `narrator opening rule missing: ${phrase}`)
+  for (const id of ['clerk', 'sim-1']) assert.ok(parsed.agents.find(a => a.id === id).systemPrompt.includes('开卷后的第一拍'), `${id} handles material on the first beat`)
+  notes.push('开卷：执笔读开场白开关，世事建档后接着裁定第一拍、不补设')
   // A member cannot learn a required field it must write when its prompt never names it and the path's default
   // shows no example (an empty array). That is how 世事 failed ten writes in the first trial; check every member.
   for (const a of resolved.agents) {
@@ -563,7 +587,8 @@ function check(variant, parsed) {
   const outputAwaits = awaits(resolved.agents.find(a => a.id === resolved.output.agentId)).reduce((sum, h) => sum + h.timeoutMs, 0)
   assert.ok(resolved.execution.budget.maxElapsedMs > outputAwaits, 'run elapsed budget covers the output agent awaits')
   const askFile = awaits(resolved.agents.find(a => a.id === 'world'))[0].timeoutMs
-  notes.push(`超时由内向外：调卷 ${askFile / 1000}s ⊂ 世事 ${awaits(resolved.agents.find(a => a.id === 'narrator'))[0].timeoutMs / 1000}s ⊂ 整轮 ${resolved.execution.budget.maxElapsedMs / 1000}s；请求上限 ${resolved.execution.budget.maxRequests}`)
+  const checkDraft = awaits(resolved.agents.find(a => a.id === 'narrator')).find(h => h.id === 'check-draft')
+  notes.push(`超时由内向外：调卷 ${askFile / 1000}s ⊂ 世事 ${awaits(resolved.agents.find(a => a.id === 'narrator'))[0].timeoutMs / 1000}s ⊂ 整轮 ${resolved.execution.budget.maxElapsedMs / 1000}s${checkDraft ? `；核验草稿 ${checkDraft.timeoutMs / 1000}s` : ''}；请求上限 ${resolved.execution.budget.maxRequests}`)
   // The longest request chain must fit maxDepth (each hop adds one level from plugin 0.7.3 on).
   const byId = new Map(parsed.agents.map(a => [a.id, a]))
   const longest = (id, seen = new Set()) => {
