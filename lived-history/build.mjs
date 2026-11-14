@@ -15,18 +15,28 @@ const { resolveAuthorParameters } = await load('src/shared/author-parameters.mjs
 const { describeStateToolAccess } = await load('src/host/state-store.mjs')
 const { validateValueSchema } = await load('src/shared/value-schema.mjs')
 
-const VERSION = '0.3.2'
+const VERSION = { std: '0.3.17', plus: '0.3.19' }
+const PLUGIN_MINIMUM = { std: '0.7.16', plus: '0.7.19' }
+const MODE_PARAMETER = '运行.协作模式'
+const AUTONOMY_PARAMETER = '运行.剧情主动性'
+const AUTONOMY_MEMBERS = ['narrator', 'world', 'clerk', 'sim-1', 'sim-2']
+const PLOT_PARAMETER = '运行.情节去套路'
+const PLOT_MEMBERS = ['narrator', 'world', 'sim-1', 'sim-2']
 const S = 'shared'
 const read = name => readFileSync(join(here, 'prompts', `${name}.md`), 'utf8').replace(/\r\n/g, '\n')
 const invariants = read('_invariants').trim()
 const eventFields = read('_event-fields').trim()
 
-function prompt(name, variant) {
+function prompt(name, variant, { focusedWriting = false } = {}) {
   const keep = variant === 'plus' ? 'plus' : 'std'
   const drop = variant === 'plus' ? 'std' : 'plus'
   return read(name)
     .replace(new RegExp(`\\[\\[${drop}\\]\\][\\s\\S]*?\\[\\[/${drop}\\]\\]\\n?`, 'g'), '')
     .replace(new RegExp(`\\[\\[/?${keep}\\]\\]\\n?`, 'g'), '')
+    .replace(/\[\[(chronicle|focus)\]\]\n?([\s\S]*?)\[\[\/\1\]\]\n?/gu,
+      (_block, mode, body) => mode === (focusedWriting ? 'focus' : 'chronicle') ? body : '')
+    .replaceAll('[[autonomy-slot]]', variant === 'plus' ? `{{param:${AUTONOMY_PARAMETER}}}` : '')
+    .replaceAll('[[plot-slot]]', variant === 'plus' ? `{{param:${PLOT_PARAMETER}}}` : '')
     .replace('{{INVARIANTS}}', invariants)
     .replace('{{EVENT_FIELDS}}', eventFields)
     .replace(/\n{3,}/g, '\n\n')
@@ -80,14 +90,14 @@ function ceilings(plus) {
 const CALLS = { narrator: 6, world: 18, clerk: 8, sim: 4, checker: 5, chronicler: 8, margin: 10 }
 function requestBudget(plus) {
   return CALLS.narrator + CALLS.world + CALLS.clerk + (2 + MAX_RELAYS) * CALLS.sim + CALLS.chronicler + CALLS.margin
-    + (plus ? 2 * CALLS.checker : 0)
+    + (plus ? 3 * CALLS.checker : 0)
 }
 
 function handoffsFor(plus) {
   const T = ceilings(plus)
   return {
     askWorld: {
-      id: 'ask-world', to: 'world', mode: 'await', timeoutMs: T.askWorld * 1000, onFailure: 'return_error',
+      id: 'ask-world', to: 'world', mode: 'await', timeoutMs: T.askWorld * 1000, onFailure: 'return_error', references: true, terminal: true,
       requestSchema: envelope({ mode: { type: 'string', enum: ['裁定', '开卷', '补充', '修订'] }, input: str, question: str, elapsed: str }, ['mode', 'input', 'question']),
       requestSelectors: ['/summary', '/data'],
       responseSchema: responseOf({
@@ -102,11 +112,12 @@ function handoffsFor(plus) {
       requestSchema: envelope({ from: str, to: str }, ['to']), requestSelectors: ['/summary', '/data']
     },
     askFile: {
-      id: 'ask-file', to: 'clerk', mode: 'await', timeoutMs: T.askFile * 1000, onFailure: 'return_error',
+      id: 'ask-file', to: 'clerk', mode: 'await', timeoutMs: T.askFile * 1000, onFailure: 'return_error', references: true, terminal: true,
       requestSchema: envelope({
         mode: { type: 'string', enum: ['推演', '建档', '幕外'] }, player: str, present: strs,
         stimulus: arr(obj({ event: str, content: str }, ['content'])), midbeat: arr(obj({ content: str, when: str }, ['content'])),
-        first: str, material: arr(obj({ who: str, text: str }, ['who', 'text'])), notes: strs
+        first: str, material: arr(obj({ who: str, text: str }, ['who', 'text'])), notes: strs,
+        sceneCues: arr(obj({ content: str, perceivers: strs }, ['content', 'perceivers']))
       }, ['mode', 'player', 'present', 'stimulus']),
       requestSelectors: ['/summary', '/data'],
       responseSchema: responseOf({
@@ -116,18 +127,19 @@ function handoffsFor(plus) {
       responseSelectors: ['/data']
     },
     askSim: slot => ({
-      id: `ask-sim-${slot}`, to: `sim-${slot}`, mode: 'await', timeoutMs: T.askSim * 1000, onFailure: 'return_error',
+      id: `ask-sim-${slot}`, to: `sim-${slot}`, mode: 'await', timeoutMs: T.askSim * 1000, onFailure: 'return_error', references: true, terminal: true, parallel: true, simulation: true, materialPack: true,
       requestSchema: envelope({
         seq: num, slot: { type: 'number', enum: [1, 2] }, mode: { type: 'string', enum: ['推演', '建档', '幕外', '接力'] },
-        player: str, group: strs, now: str, stimulus: anyArr, relay: anyArr, people: { type: 'object' }, facing: str, check_issues: anyArr
+        player: str, group: strs, now: str, stimulus: anyArr, relay: anyArr, people: { type: 'object' }, facing: str, check_issues: anyArr,
+        material: anyArr, notes: strs, omitted: { type: 'object' }
       }, ['seq', 'slot', 'mode', 'player', 'group', 'now', 'stimulus', 'people', 'facing']),
       requestSelectors: ['/summary', '/data'],
       responseSchema: responseOf({ beats: arr(beat) }, ['beats']),
       responseSelectors: ['/data']
     }),
     checkSim: {
-      id: 'check-sim', to: 'checker', mode: 'await', timeoutMs: T.checkSim * 1000, onFailure: 'return_error',
-      requestSchema: envelope({ packs: anyArr, beats: anyArr }, ['packs', 'beats']), requestSelectors: ['/summary', '/data'],
+      id: 'check-sim', to: 'checker', mode: 'await', timeoutMs: T.checkSim * 1000, onFailure: 'return_error', references: true, terminal: true, compactReview: 'simulation', scopedReview: true,
+      requestSchema: envelope({ packs: anyArr, beats: anyArr, precheck: anyArr }, ['packs', 'beats', 'precheck']), requestSelectors: ['/summary', '/data'],
       responseSchema: responseOf({
         pass: bool,
         issues: arr(obj({ who: str, kind: { type: 'string', enum: ['依据不在材料包', '背离缺依据', '读心', '替用户角色写', '解释多于动作'] }, note: str }, ['kind', 'note']))
@@ -135,8 +147,8 @@ function handoffsFor(plus) {
       responseSelectors: ['/data']
     },
     checkDraft: {
-      id: 'check-draft', to: 'checker', mode: 'await', timeoutMs: T.checkDraft * 1000, onFailure: 'return_error',
-      requestSchema: envelope({ draft: str, world_return: { type: 'object' } }, ['draft', 'world_return']), requestSelectors: ['/summary', '/data'],
+      id: 'check-draft', to: 'checker', mode: 'await', timeoutMs: T.checkDraft * 1000, onFailure: 'return_error', references: true, terminal: true, compactReview: 'draft', autoPublish: true, scopedReview: true, parallel: true,
+      requestSchema: envelope({ draft: str, world_return: { type: 'object' }, current_input: str }, ['draft', 'world_return', 'current_input']), requestSelectors: ['/summary', '/data'],
       responseSchema: responseOf({
         pass: bool,
         issues: arr(obj({ kind: { type: 'string', enum: ['未确立的事', '知情越界', '暗线越过表面', '替用户角色写', '过度解释', '不合设置'] }, quote: str, note: str }, ['kind', 'note']))
@@ -225,6 +237,7 @@ const agent = fields => ({
 function agents(variant) {
   const plus = variant === 'plus'
   const handoffs = handoffsFor(plus)
+  const presentationReview = { ...handoffs.checkDraft, id: 'check-draft-presentation', to: 'checker-presentation', autoPublish: false }
   const list = [
     agent({
       id: 'narrator', name: '执笔',
@@ -237,21 +250,23 @@ function agents(variant) {
       // to avoid rewriting it on the opening round. Appended last: 运行.执笔读卡 is bound to sources/2.
       context: { sources: [{ type: 'current_input' }, { type: 'recent_history', limit: 12 }, ...names, OPENING_SHOWN] },
       communication: {
-        sendTo: ['world'], receiveFrom: ['world', ...(plus ? ['checker'] : [])],
-        requestTo: ['world', ...(plus ? ['checker'] : [])], requestFrom: [],
-        handoffs: [handoffs.askWorld, handoffs.tickWorld, ...(plus ? [handoffs.checkDraft] : [])]
+        sendTo: ['world'], receiveFrom: ['world', ...(plus ? ['checker', 'checker-presentation'] : [])],
+        requestTo: ['world', ...(plus ? ['checker', 'checker-presentation'] : [])], requestFrom: [],
+        handoffs: [handoffs.askWorld, handoffs.tickWorld, ...(plus ? [handoffs.checkDraft, presentationReview] : [])]
       },
       statePermissions: perms([
         ['/canon/world', 'read'], ['/canon/events', 'read'], ['/canon/hidden', 'read'], ['/situations', 'read'],
         ['/selves', 'read'], ['/practices', 'read'], ['/story/notes', 'read'], ['/story/direction', 'readwrite']
       ]),
       outputAuthority: { internal: true, draft: false, state: true, user: true },
-      execution: { after: [], onFailure: 'stop', trustedTools: [] }
+      execution: { after: [], onFailure: 'stop', trustedTools: [], ...(plus ? { recoverSkippedDraftReview: true,
+        livedHistoryWriterPresentation: true, livedHistoryParallelDraftReview: true } : {}) }
     }),
     agent({
       id: 'world', name: '世事',
+      execution: { livedHistoryPhase: 'world', memoryAppend: true, livedHistoryWorldTurn: true, livedHistoryFocusedWorld: true, livedHistorySceneCues: true, livedHistoryPreparedWorldClose: true },
       description: '唯一确立事实的成员：登记刺激、交调卷推演、按世界条件裁定结果、推进幕外。不替人物做决定。',
-      systemPrompt: prompt('world', variant),
+      systemPrompt: `[[world:focused]]\n${prompt('world-focused', variant)}\n[[/world]]\n[[world:other]]\n${prompt('world', variant)}\n[[/world]]`,
       parameters: { temperature: 0.5 },
       triggers: [
         { type: 'requested_by_agent', from: ['narrator'], id: 'world-request' },
@@ -267,7 +282,8 @@ function agents(variant) {
     }),
     agent({
       id: 'clerk', name: '调卷',
-      description: '按知情范围分组、装材料包、找先例，依次交给推演一和推演二，把回执原样交回世事。不提建议。',
+      execution: { livedHistorySingleGroup: true },
+      description: '按知情范围分组、装材料包、找先例。两组独立时并行推演，需要接续时依次交接，把回执原样交回世事。',
       systemPrompt: prompt('clerk', variant),
       parameters: { temperature: 0.2 },
       triggers: [{ type: 'requested_by_agent', from: ['world'], id: 'clerk-request' }],
@@ -285,6 +301,7 @@ function agents(variant) {
     }),
     ...[1, 2].map(slot => agent({
       id: `sim-${slot}`, name: slot === 1 ? '推演一' : '推演二',
+      execution: { livedHistoryGroundRefs: true, livedHistoryTypedSimulation: true, livedHistoryGroundChoices: true },
       description: `只看调卷发来的材料包，替一组人决定这一拍各自怎么做；只写不读本组人的自述和记忆。${slot === 1 ? '先推演的一组。' : '后推演的一组。'}`,
       systemPrompt: prompt('sim', variant),
       parameters: { temperature: 0.95 },
@@ -296,6 +313,7 @@ function agents(variant) {
     })),
     agent({
       id: 'chronicler', name: '编年',
+      execution: { livedHistoryPhase: 'chronicleProvenance' },
       description: '后台成员，隔几轮与执笔并行：转录、过往做法、作者暂定、错位与变化、材料包核对、审查、叙事笔记、压缩。',
       systemPrompt: prompt('chronicler', variant),
       parameters: { temperature: 0.3 },
@@ -315,12 +333,26 @@ function agents(variant) {
   ]
   if (plus) list.push(agent({
     id: 'checker', name: '核验',
+    execution: { livedHistoryDirectDraftReview: true, livedHistoryDialoguePremises: true, livedHistoryIndependentPremises: true,
+      livedHistoryDraftFactLane: true },
     description: '增强版：发布前核对推演回执（调卷请求）和正文草稿（执笔请求），只指出问题。读不到作者暂定、暗线库、过往做法。',
     systemPrompt: prompt('checker', variant),
-    parameters: { temperature: 0.2 },
+    parameters: { temperature: 0.2, reasoningEffort: 'high' },
     triggers: [{ type: 'requested_by_agent', from: ['clerk', 'narrator'], id: 'checker-request' }],
     context: { sources: [{ type: 'agent_messages', agentIds: ['clerk', 'narrator'] }] },
     communication: { sendTo: ['clerk', 'narrator'], receiveFrom: [], requestTo: [], requestFrom: ['clerk', 'narrator'] },
+    statePermissions: perms([['/canon/events', 'read']]),
+    outputAuthority: { internal: true, draft: false, state: false, user: false }
+  }))
+  if (plus) list.push(agent({
+    id: 'checker-presentation', name: '呈现核验',
+    description: '看同一份待发布正文，核对人物知情、暗线和呈现。',
+    execution: { livedHistoryDirectDraftReview: true, livedHistoryDialoguePremises: true, livedHistoryDraftPresentationLane: true },
+    systemPrompt: prompt('checker', variant),
+    parameters: { temperature: 0.2, reasoningEffort: 'high' },
+    triggers: [{ type: 'requested_by_agent', from: ['narrator'], id: 'presentation-check-request' }],
+    context: { sources: [{ type: 'agent_messages', agentIds: ['narrator'] }] },
+    communication: { sendTo: ['narrator'], receiveFrom: [], requestTo: [], requestFrom: ['narrator'] },
     statePermissions: perms([['/canon/events', 'read']]),
     outputAuthority: { internal: true, draft: false, state: false, user: false }
   }))
@@ -338,7 +370,7 @@ const groupOf = id => id.split('.')[0]
 
 function settings(variant) {
   const plus = variant === 'plus'
-  const C = plus ? ['checker'] : []
+  const C = plus ? ['checker', 'checker-presentation'] : []
   const choice = (id, name, deliver, def, options, note = '') => ({
     id, name, group: groupOf(id), type: 'choice', description: deliverNote(deliver) + note,
     options: options.map(({ tier, label = tier, text }) => ({ label, value: tier, text: `【${tier}】${text}` })),
@@ -431,12 +463,39 @@ function settings(variant) {
       ...(plus ? [['checker', '核验模型', '守规矩、细。']] : [])
     ].map(([id, name, note]) => ({
       id: `运行.${name}`, name, group: '运行', type: 'model', description: `${note}inherit = 本轮冻结的聊天模型。`, default: 'inherit',
-      bindings: (id === 'sim' ? ['sim-1', 'sim-2'] : [id]).map(agentId => setBind(agentId, '/modelRef'))
+      bindings: (id === 'sim' ? ['sim-1', 'sim-2'] : id === 'checker' ? C : [id]).map(agentId => setBind(agentId, '/modelRef'))
     }))
   ]
+  if (plus) list.push({
+    id: MODE_PARAMETER, name: '协作模式', group: '运行', type: 'choice',
+    description: '完整协作有定期编年。专注续写暂停编年，保留世事、调卷、推演和两路正文核验。保存后从下一轮起生效。',
+    options: [
+      { label: '完整协作（含编年）', value: 'full' },
+      { label: '专注续写（暂停编年）', value: 'focused-writing', structure: {
+        excludeAgents: ['chronicler'], prompts: { narrator: prompt('narrator', variant, { focusedWriting: true }) }
+      } }
+    ],
+    default: 'full', bindings: []
+  }, {
+    id: AUTONOMY_PARAMETER, name: '剧情主动性', group: '运行', type: 'choice',
+    description: '自主生长让人物在接住用户话题的同时，按自己的关切选择行动。闲谈有实际机会时也可启动一次独立推演。保存后从下一轮起生效。',
+    options: [
+      { label: '沿用原节奏', value: 'default', text: '' },
+      { label: '自主生长', value: 'autonomous', text: '\n\n' + read('autonomy').trim() }
+    ],
+    default: 'default', bindings: textBind(AUTONOMY_MEMBERS)
+  }, {
+    id: PLOT_PARAMETER, name: '情节去套路', group: '运行', type: 'choice',
+    description: '从已有因果中找更鲜活的走向，避免在不同处境下反复走同一种收场。可独立于剧情主动性开启。保存后从下一轮起生效。',
+    options: [
+      { label: '沿用原走向', value: 'default', text: '' },
+      { label: '因果生变', value: 'causal-variation', text: '\n\n' + read('plot-variation').trim() }
+    ],
+    default: 'default', bindings: textBind(PLOT_MEMBERS)
+  })
   return list
 }
-const AGENT_NAMES = { narrator: '执笔', world: '世事', clerk: '调卷', 'sim-1': '推演一', 'sim-2': '推演二', chronicler: '编年', checker: '核验' }
+const AGENT_NAMES = { narrator: '执笔', world: '世事', clerk: '调卷', 'sim-1': '推演一', 'sim-2': '推演二', chronicler: '编年', checker: '事实核验', 'checker-presentation': '呈现核验' }
 
 // ---------- assemble ----------
 function build(variant) {
@@ -446,13 +505,11 @@ function build(variant) {
     schemaVersion: 2,
     id: plus ? 'lived-history-plus' : 'lived-history',
     name: plus ? '经历 Lived History（增强版）' : '经历 Lived History',
-    version: VERSION,
+    version: VERSION[variant],
     metadata: {
       author: 'RP Team',
       description: '文学现实主义 RP 预设：人物只作为记录存在；在场的人按知情范围分组，由不绑定人物的推演成员只看材料包推演；世事唯一裁定事实，执笔唯一发布。说明见 LIVED_HISTORY.zh-CN.md，设计见 LIVED_HISTORY_DESIGN.zh-CN.md。',
-      // exportPreset derives dependencies.minimumPluginVersion (0.7.0) from features; the three-hop handoff chain
-      // under maxDepth 3 also needs the 0.7.3 depth fix, which only this note can state.
-      targets: 'ElecKoi v0.2.20 / v0.2.21 + RP Agent Team 0.7.3 以上（schemaVersion 2）',
+      targets: `ElecKoi v0.2.20 / v0.2.21 / v0.3.0 + RP Agent Team ${PLUGIN_MINIMUM[variant]} 以上（schemaVersion 2）`,
       variant: plus ? '增强版：加核验' : '标准版',
       settingsRegistry: params.map(p => ({
         id: p.id, layer: p.id.split('.')[0],
@@ -475,7 +532,7 @@ function build(variant) {
       ]
     }
   }
-  const draft = { format: 'rp-team-preset-v2', dependencies: { minimumPluginVersion: '0.7.0', presets: [], models: [], toolGroups: [] }, config }
+  const draft = { format: 'rp-team-preset-v2', config }
   const parsed = parsePreset(JSON.stringify(draft))
   const canonical = exportPreset(parsed)
   assert.deepEqual(exportPreset(parsePreset(JSON.stringify(canonical))), canonical, 'round trip')
@@ -509,10 +566,11 @@ function check(variant, parsed) {
     const tokens = new Set([...a.systemPrompt.matchAll(PARAM_TOKEN)].map(m => m[1]))
     const bound = new Set(parsed.authorParameters.filter(p => p.bindings.some(b => b.mode === 'text' && b.target.agentId === a.id)).map(p => p.id))
     assert.deepEqual([...tokens].sort(), [...bound].sort(), `${a.id}: tokens vs bindings`)
-    if (a.id.startsWith('sim-')) assert.equal(tokens.size, 0, 'sim prompts carry no settings')
+    if (a.id.startsWith('sim-')) assert.deepEqual([...tokens], variant === 'plus' ? [AUTONOMY_PARAMETER, PLOT_PARAMETER] : [],
+      'only actor-facing narrative choices may enter enhanced simulation prompts')
     if (a.id === 'clerk') assert.ok([...tokens].every(t => !SIMULATION_FORBIDDEN_LAYERS.includes(t.split('.')[0])), 'clerk gets no presentation/adjudication settings')
   }
-  notes.push('占位符与绑定一致；推演无设置，调卷只有运行层')
+  notes.push('占位符与绑定一致；推演只接收可选的剧情规则，调卷只有运行层')
   // permission matrix
   const access = id => {
     const a = parsed.agents.find(x => x.id === id)
@@ -527,7 +585,7 @@ function check(variant, parsed) {
     const rights = access(a.id)
     if (a.id !== 'chronicler') assert.ok(!rights['/readings']?.read, `${a.id} must not read /readings`)
     if (!a.id.startsWith('sim-')) assert.ok(!rights['/selves']?.write && !rights['/memories']?.write, `${a.id} must not write selves/memories`)
-    if (['narrator', 'clerk', 'sim-1', 'sim-2', 'checker'].includes(a.id)) {
+    if (['narrator', 'clerk', 'sim-1', 'sim-2', 'checker', 'checker-presentation'].includes(a.id)) {
       for (const p of ['/canon/world', '/canon/events', '/canon/hidden', '/situations']) assert.ok(!rights[p]?.write, `${a.id} must not write ${p}`)
     }
   }
@@ -553,11 +611,85 @@ function check(variant, parsed) {
   for (const phrase of ['show_opening', '【开卷那一轮怎么写】']) assert.ok(narrator.systemPrompt.includes(phrase), `narrator opening rule missing: ${phrase}`)
   for (const id of ['clerk', 'sim-1']) assert.ok(parsed.agents.find(a => a.id === id).systemPrompt.includes('开卷后的第一拍'), `${id} handles material on the first beat`)
   notes.push('开卷：执笔读开场白开关，世事建档后接着裁定第一拍、不补设')
+  // 0.3.2 trial: 世事, then 执笔, re-typed the nested sim receipts and broke the JSON brackets where `attempts`
+  // met relays/untreated/check, which failed the round. From 0.3.3 every hop forwards receipts by handoff
+  // reference (plugin 0.7.4), so the host copies them and no model re-types them.
+  const plus = variant === 'plus'
+  const forwarding = {
+    narrator: ['ask-world', ...(plus ? ['check-draft', 'check-draft-presentation'] : [])],
+    world: ['ask-file'],
+    clerk: ['ask-sim-1', 'ask-sim-2', ...(plus ? ['check-sim'] : [])]
+  }
+  for (const [id, handoffIds] of Object.entries(forwarding)) {
+    const rules = parsed.agents.find(a => a.id === id).communication.handoffs
+    for (const handoffId of handoffIds) {
+      const rule = rules.find(h => h.id === handoffId)
+      assert.equal(rule?.references, true, `${id} -> ${handoffId} allows references`)
+      assert.equal(rule?.terminal, true, `${id} -> ${handoffId} ends after its validated response`)
+    }
+  }
+  assert.equal(narrator.communication.handoffs.find(h => h.id === 'tick-world')?.terminal, undefined, 'offstage notification is not a terminal response handoff')
+  const clerkPrompt = parsed.agents.find(a => a.id === 'clerk').systemPrompt
+  const parallelRules = parsed.agents.flatMap(a => (a.communication.handoffs ?? []).filter(h => h.parallel).map(h => [a.id, h.id]))
+  assert.deepEqual(parallelRules, [...(plus ? [['narrator', 'check-draft'], ['narrator', 'check-draft-presentation']] : []),
+    ['clerk', 'ask-sim-1'], ['clerk', 'ask-sim-2']], 'only independent review and sim handoffs can be batched')
+  assert.ok(clerkPrompt.includes('rp_team_request_many') && clerkPrompt.includes('接力'), 'clerk batches with no cross-group relay')
+  assert.ok(worldPrompt.includes('"pointer": "/groups"') && !worldPrompt.includes('各组推演回执，原样'), 'world forwards attempts by reference')
+  assert.ok(clerkPrompt.includes('"pointer": "/beats"') && !clerkPrompt.includes('一个字也不改'), 'clerk forwards receipts by reference')
+  if (plus) {
+    assert.ok(clerkPrompt.includes('"side": "request"'), 'clerk forwards packs to check-sim by reference')
+    assert.ok(narrator.systemPrompt.includes('world_return 写 {"$ref"'), 'narrator forwards the world return to check-draft by reference')
+    assert.ok(narrator.systemPrompt.includes('publishOnPass'), 'narrator explicitly authorizes publishing its approved exact draft')
+    assert.ok(narrator.systemPrompt.includes('每轮最多送审一次'), 'narrator checks a draft at most once')
+    const defaultMode = parsed.authorParameters.find(p => p.id === MODE_PARAMETER)
+    assert.equal(defaultMode.default, 'full')
+    assert.deepEqual(resolved.agents.map(a => a.id), parsed.agents.map(a => a.id), 'full mode preserves the roster')
+    const focused = resolveAuthorParameters(parsed, { [MODE_PARAMETER]: 'focused-writing', '呈现.附加': '照顾节奏。' }).config
+    const focusedNarrator = focused.agents.find(a => a.id === 'narrator')
+    assert.deepEqual(focused.agents.map(a => a.id), resolved.agents.map(a => a.id).filter(id => id !== 'chronicler'))
+    assert.deepEqual(focused.state, resolved.state)
+    assert.deepEqual(focused.memory, resolved.memory)
+    assert.deepEqual(focused.output, resolved.output)
+    assert.deepEqual(focusedNarrator.communication.handoffs, resolved.agents.find(a => a.id === 'narrator').communication.handoffs)
+    assert.match(focusedNarrator.systemPrompt, /照顾节奏。/u, 'author text overrides also bind into the replacement prompt')
+    assert.doesNotMatch(focusedNarrator.systemPrompt, /\{\{|\[\[\/?(?:chronicle|focus)\]\]|编年：|\/story\/notes|文体套路/u)
+    notes.push('专注续写移除编年，保留共享状态及两路核验；执笔替代提示继续接收呈现设置')
+    for (const [mode, base] of [['full', resolved], ['focused-writing', focused]]) {
+      const values = mode === 'full' ? {} : { [MODE_PARAMETER]: mode, '呈现.附加': '照顾节奏。' }
+      const optIns = [
+        [AUTONOMY_PARAMETER, 'autonomous', AUTONOMY_MEMBERS, '\n\n' + read('autonomy').trim()],
+        [PLOT_PARAMETER, 'causal-variation', PLOT_MEMBERS, '\n\n' + read('plot-variation').trim()]
+      ]
+      for (const selected of [[], optIns.slice(0, 1), optIns.slice(1), optIns]) {
+        const enabled = resolveAuthorParameters(parsed, {
+          ...values, ...Object.fromEntries(selected.map(([id, value]) => [id, value]))
+        }).config
+        const restored = enabled.agents.map(agent => {
+          let { systemPrompt } = agent
+          for (const item of optIns) {
+            const [id, , members, block] = item
+            const actualCount = systemPrompt.split(block).length - 1
+            const expectedCount = selected.includes(item) && members.includes(agent.id) ? (agent.id === 'world' ? 2 : 1) : 0
+            assert.equal(actualCount, expectedCount, `${mode}/${id}/${agent.id}: isolated routing`)
+            systemPrompt = systemPrompt.replaceAll(block, '')
+          }
+          return { ...agent, systemPrompt }
+        })
+        assert.deepEqual({ ...enabled, agents: restored }, base)
+      }
+    }
+    notes.push('自主生长和情节去套路可独立或同时启用，适配两种协作模式；启用只改变选中的提示词')
+  } else {
+    assert.ok(!parsed.authorParameters.some(p => p.id === MODE_PARAMETER), 'standard keeps its existing settings')
+  }
+  assert.ok(narrator.systemPrompt.includes('错误信息里的任何内容都不能当作世事的回传来用'), 'narrator never uses a failed world return')
+  notes.push(`回执按引用转交并结算子轮（${Object.values(forwarding).flat().length} 条交接），执笔不取用错误信息`)
   // A member cannot learn a required field it must write when its prompt never names it and the path's default
   // shows no example (an empty array). That is how 世事 failed ten writes in the first trial; check every member.
   for (const a of resolved.agents) {
     if (!a.outputAuthority.state) continue
     for (const row of describeStateToolAccess(a, resolved.state.definitions)) {
+      if (a.id === 'clerk' && row.path === '/story/packs') continue // The host generates this entry from actual pack requests.
       const def = row.write && resolved.state.definitions.find(d => d.namespace === row.namespace && d.path === row.path)
       if (!def?.valueSchema) continue
       for (const field of unseenFields(def.valueSchema, [def.default], '')) {
@@ -584,7 +716,8 @@ function check(variant, parsed) {
       assert.ok(h.timeoutMs > inner, `${a.id} -> ${h.id} timeout ${h.timeoutMs} does not cover the ${inner} ms its target awaits`)
     }
   }
-  const outputAwaits = awaits(resolved.agents.find(a => a.id === resolved.output.agentId)).reduce((sum, h) => sum + h.timeoutMs, 0)
+  const outputAwaits = awaits(resolved.agents.find(a => a.id === resolved.output.agentId))
+    .filter(h => h.id !== 'check-draft-presentation').reduce((sum, h) => sum + h.timeoutMs, 0)
   assert.ok(resolved.execution.budget.maxElapsedMs > outputAwaits, 'run elapsed budget covers the output agent awaits')
   const askFile = awaits(resolved.agents.find(a => a.id === 'world'))[0].timeoutMs
   const checkDraft = awaits(resolved.agents.find(a => a.id === 'narrator')).find(h => h.id === 'check-draft')
@@ -606,6 +739,7 @@ function check(variant, parsed) {
 for (const variant of ['std', 'plus']) {
   const { parsed, canonical } = build(variant)
   const notes = check(variant, parsed)
+  assert.equal(canonical.dependencies.minimumPluginVersion, PLUGIN_MINIMUM[variant], 'requires the declared plugin features')
   const file = join(presetsDir, variant === 'plus' ? 'lived-history-plus.rp-team.json' : 'lived-history.rp-team.json')
   writeFileSync(file, `${JSON.stringify(canonical, null, 2)}\n`, 'utf8')
   const chars = parsed.agents.map(a => `${AGENT_NAMES[a.id]} ${a.systemPrompt.length}`).join('，')
